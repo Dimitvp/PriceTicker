@@ -117,6 +117,95 @@ public sealed class QuoteItemViewModelTests
         Assert.Equal("Daily change (chart unavailable)", item.ChangeDescription);
     }
 
+    [Fact]
+    public void Hovering_ShowsThatPointsPriceAndDate_ThenRestoresLiveValues()
+    {
+        var (item, _) = ItemWithChart(ChartRange.Year, live: 12m, 10m, 11m, 12m);
+
+        item.HoveredIndex = 1;
+
+        Assert.True(item.IsHovering);
+        Assert.Equal("11.00 EUR", item.ShownPriceText);
+        Assert.Equal(PointTime(1).ToString("dd.MM.yyyy", CultureInfo.InvariantCulture), item.ShownChangeText);
+
+        item.HoveredIndex = null;
+
+        Assert.False(item.IsHovering);
+        Assert.Equal("12.00 EUR", item.ShownPriceText);
+        Assert.Equal("+20.00 %", item.ShownChangeText);
+    }
+
+    [Fact]
+    public void Hovering_NotifiesEverythingTheRowBindsTo()
+    {
+        var (item, _) = ItemWithChart(ChartRange.Year, live: 12m, 10m, 11m, 12m);
+        var notified = new List<string?>();
+        item.PropertyChanged += (_, e) => notified.Add(e.PropertyName);
+
+        item.HoveredIndex = 0;
+
+        Assert.Contains(nameof(QuoteItemViewModel.IsHovering), notified);
+        Assert.Contains(nameof(QuoteItemViewModel.ShownPriceText), notified);
+        Assert.Contains(nameof(QuoteItemViewModel.ShownChangeText), notified);
+    }
+
+    [Fact]
+    public void WidestPriceText_CoversLiveAndChartPrices()
+    {
+        var (item, _) = ItemWithChart(ChartRange.Year, live: 99.8m, 98m, 100.2m, 99m);
+
+        Assert.Equal("100.20 EUR", item.WidestPriceText);
+    }
+
+    [Theory]
+    [InlineData(ChartRange.Day)]
+    [InlineData(ChartRange.Week)]
+    public void Hovering_IntradayRange_IncludesTimeOfDay(ChartRange range)
+    {
+        var (item, _) = ItemWithChart(range, live: 2m, 1m, 2m);
+
+        item.HoveredIndex = 0;
+
+        Assert.Equal(PointTime(0).ToString("dd.MM HH:mm", CultureInfo.InvariantCulture), item.ShownChangeText);
+    }
+
+    [Fact]
+    public void NewChart_ClearsHover()
+    {
+        var (item, instrument) = ItemWithChart(ChartRange.Year, live: 2m, 1m, 2m);
+        item.HoveredIndex = 1;
+
+        item.ApplyHistory(FakeHistoryService.History(ChartRange.Week, [instrument], 5m, 6m)[0]);
+
+        Assert.Null(item.HoveredIndex);
+        Assert.False(item.IsHovering);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(3)]
+    public void HoveredIndexOutsideChart_ShowsLiveValues(int index)
+    {
+        var (item, _) = ItemWithChart(ChartRange.Year, live: 12m, 10m, 11m, 12m);
+
+        item.HoveredIndex = index;
+
+        Assert.False(item.IsHovering);
+        Assert.Equal("12.00 EUR", item.ShownPriceText);
+    }
+
+    private static DateTimeOffset PointTime(int index) => DateTimeOffset.UnixEpoch.AddHours(index).ToLocalTime();
+
+    private static (QuoteItemViewModel Item, PriceTicker.Core.Instruments.Instrument Instrument) ItemWithChart(
+        ChartRange range, decimal live, params decimal[] prices)
+    {
+        var instrument = TestInstruments.Create("a");
+        var item = new QuoteItemViewModel(instrument);
+        item.Apply(new QuoteAvailable(new Quote(instrument, live, null, "EUR", DateTimeOffset.UnixEpoch)));
+        item.ApplyHistory(FakeHistoryService.History(range, [instrument], prices)[0]);
+        return (item, instrument);
+    }
+
     private static QuoteItemViewModel Apply(decimal price, decimal? previousClose, string currency = "EUR")
     {
         var instrument = TestInstruments.Create("a");

@@ -41,6 +41,36 @@ public sealed class SparklineLayoutTests
         Assert.Empty(SparklineLayout.Map([.. Enumerable.Repeat(1d, count)], Size, padding: 0));
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(24, 1)]
+    [InlineData(26, 1)]
+    [InlineData(37.5, 2)]
+    [InlineData(100, 4)]
+    [InlineData(-30, 0)]
+    [InlineData(500, 4)]
+    public void IndexAt_PicksNearestPoint_AndClampsOutside(double x, int expected)
+    {
+        // 5 points across 100 px: one every 25 px.
+        Assert.Equal(expected, SparklineLayout.IndexAt(x, count: 5, width: 100, padding: 0));
+    }
+
+    [Fact]
+    public void IndexAt_IsTheInverseOfMap()
+    {
+        double[] values = [3, 1, 4, 1, 5, 9, 2, 6];
+        var points = SparklineLayout.Map(values, Size, padding: 4);
+
+        Assert.All(points.Select((point, index) => (point, index)), entry =>
+            Assert.Equal(entry.index, SparklineLayout.IndexAt(entry.point.X, values.Length, Size.Width, padding: 4)));
+    }
+
+    [Fact]
+    public void IndexAt_WithoutAChart_IsNull()
+    {
+        Assert.Null(SparklineLayout.IndexAt(10, count: 1, width: 100, padding: 0));
+    }
+
     [Fact]
     public void Map_NoRoomAfterPadding_ReturnsNothing()
     {

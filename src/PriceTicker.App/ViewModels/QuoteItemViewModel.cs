@@ -13,6 +13,7 @@ namespace PriceTicker.App.ViewModels;
 public sealed partial class QuoteItemViewModel : ObservableObject
 {
     private decimal? _lastPrice;
+    private string _currency = string.Empty;
     private decimal? _dailyChangePercent;
     private PriceHistory? _history;
 
@@ -28,10 +29,12 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     public string DisplayName { get; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShownPriceText))]
     private string _priceText = "—";
 
     /// <summary>Change over the selected range, or the daily change until a chart has loaded.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShownChangeText))]
     private string _changeText = string.Empty;
 
     /// <summary>Tooltip for the change: what it is measured against, so a fallback never passes for a range change.</summary>
@@ -59,6 +62,31 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     /// <summary>Tooltip text for the chart: why it is missing, if it is.</summary>
     [ObservableProperty]
     private string? _chartStatus;
+
+    /// <summary>Index into <see cref="ChartValues"/> of the point under the pointer, set by the chart.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsHovering), nameof(ShownPriceText), nameof(ShownChangeText))]
+    private int? _hoveredIndex;
+
+    public bool IsHovering => HoveredPoint is not null;
+
+    /// <summary>The price shown in the row: the hovered point's while hovering, otherwise the live one.</summary>
+    public string ShownPriceText => HoveredPoint is { } hovered ? FormatPrice(hovered.Point.Price) : PriceText;
+
+    /// <summary>The change column: the hovered point's date while hovering, otherwise the change.</summary>
+    public string ShownChangeText => HoveredPoint is { } hovered ? FormatPointTime(hovered.Point, hovered.Range) : ChangeText;
+
+    /// <summary>
+    /// The widest price this row can show (live or any chart point). Laid out invisibly in the
+    /// price cell so that hovering never changes the column's, and so the window's, width.
+    /// </summary>
+    [ObservableProperty]
+    private string _widestPriceText = string.Empty;
+
+    private (PricePoint Point, ChartRange Range)? HoveredPoint =>
+        HoveredIndex is { } index && _history is { } history && index >= 0 && index < history.Points.Count
+            ? (history.Points[index], history.Range)
+            : null;
 
     public void Apply(QuoteResult result)
     {
@@ -98,6 +126,9 @@ public sealed partial class QuoteItemViewModel : ObservableObject
                 throw new ArgumentOutOfRangeException(nameof(result), result.GetType().Name, "Unsupported history result.");
         }
 
+        // The hovered index referred to the previous chart.
+        HoveredIndex = null;
+        UpdateWidestPrice();
         ShowChange();
     }
 
@@ -111,17 +142,35 @@ public sealed partial class QuoteItemViewModel : ObservableObject
 
     private void ShowQuote(Quote quote)
     {
-        var culture = CultureInfo.CurrentCulture;
-        var price = quote.Price.ToString("N2", culture);
-        PriceText = string.IsNullOrEmpty(quote.Currency) ? price : $"{price} {quote.Currency}";
+        _currency = quote.Currency;
+        PriceText = FormatPrice(quote.Price);
 
         _lastPrice = quote.Price;
+        UpdateWidestPrice();
         _dailyChangePercent = quote.ChangePercent;
         ShowChange();
 
         IsStale = false;
-        Detail = $"As of {quote.AsOf.ToLocalTime().ToString("dd.MM.yyyy HH:mm", culture)}";
+        Detail = $"As of {quote.AsOf.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.CurrentCulture)}";
     }
+
+    private void UpdateWidestPrice()
+    {
+        var prices = (_history?.Points.Select(point => point.Price) ?? []).Append(_lastPrice ?? 0m);
+        WidestPriceText = prices.Select(FormatPrice).MaxBy(text => text.Length) ?? string.Empty;
+    }
+
+    private string FormatPrice(decimal price)
+    {
+        var text = price.ToString("N2", CultureInfo.CurrentCulture);
+        return string.IsNullOrEmpty(_currency) ? text : $"{text} {_currency}";
+    }
+
+    // Intraday ranges need the time; longer ones are one point per day.
+    private static string FormatPointTime(PricePoint point, ChartRange range) =>
+        point.Time.ToLocalTime().ToString(
+            range is ChartRange.Day or ChartRange.Week ? "dd.MM HH:mm" : "dd.MM.yyyy",
+            CultureInfo.CurrentCulture);
 
     private void ShowChange()
     {

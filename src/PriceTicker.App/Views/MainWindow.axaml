@@ -35,6 +35,10 @@
     <Style Selector="TextBlock.change.down">
       <Setter Property="Foreground" Value="#F87171" />
     </Style>
+    <!-- While a chart is hovered the change column shows that point's date, in neutral grey. -->
+    <Style Selector="TextBlock.change.hovering">
+      <Setter Property="Foreground" Value="#A3A3A3" />
+    </Style>
     <Style Selector="controls|Sparkline">
       <Setter Property="Stroke" Value="#A3A3A3" />
     </Style>
@@ -131,13 +135,19 @@
                          ToolTip.Tip="{Binding Detail}" />
               <controls:Sparkline Grid.Column="1" Height="36"
                                   Values="{Binding ChartValues}"
+                                  HoveredIndex="{Binding HoveredIndex, Mode=OneWayToSource}"
                                   Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
                                   ToolTip.Tip="{Binding ChartStatus}" />
+              <!-- Invisible: reserves the widest price so hovering never resizes the window. -->
+              <TextBlock Grid.Column="2" Classes="price" Margin="18,0,0,0" Opacity="0" IsHitTestVisible="False"
+                         Text="{Binding WidestPriceText}" />
               <TextBlock Grid.Column="2" Classes="price" Margin="18,0,0,0"
-                         Text="{Binding PriceText}" ToolTip.Tip="{Binding Detail}" />
-              <TextBlock Grid.Column="3" Classes="change" Margin="16,0,0,0"
+                         Text="{Binding ShownPriceText}" ToolTip.Tip="{Binding Detail}" />
+              <!-- MinWidth fits a hovered date ("22.11.2026"), so hovering never resizes the window. -->
+              <TextBlock Grid.Column="3" Classes="change" Margin="16,0,0,0" MinWidth="88" TextAlignment="Right"
                          Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
-                         Text="{Binding ChangeText}" ToolTip.Tip="{Binding ChangeDescription}" />
+                         Classes.hovering="{Binding IsHovering}"
+                         Text="{Binding ShownChangeText}" ToolTip.Tip="{Binding ChangeDescription}" />
             </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>

@@ -28,4 +28,20 @@ internal static class SparklineLayout
             // A flat series sits in the middle instead of dividing by zero.
             span == 0 ? size.Height / 2 : padding + (max - value) / span * height))];
     }
+
+    /// <summary>
+    /// The index of the point nearest to horizontal position <paramref name="x"/>, the inverse of
+    /// <see cref="Map"/> on the x axis; positions outside the chart snap to the first or last point.
+    /// </summary>
+    public static int? IndexAt(double x, int count, double width, double padding)
+    {
+        if (count < 2 || width <= 2 * padding)
+        {
+            return null;
+        }
+
+        var step = (width - 2 * padding) / (count - 1);
+        var index = (int)Math.Round((x - padding) / step, MidpointRounding.AwayFromZero);
+        return Math.Clamp(index, 0, count - 1);
+    }
 }
