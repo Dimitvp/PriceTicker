@@ -151,6 +151,20 @@ public sealed class TickerViewModelTests
     }
 
     [Fact]
+    public void ToggleCommands_FlipTheirSettings()
+    {
+        var autoStart = new FakeAutoStart();
+        var viewModel = CreateViewModel(FakeQuoteService.PricingEverythingAt(7m), new FakeTimeProvider(), autoStart, "a");
+
+        viewModel.ToggleAlwaysOnTopCommand.Execute(null);
+        viewModel.ToggleStartsWithWindowsCommand.Execute(null);
+
+        Assert.False(viewModel.IsAlwaysOnTop);
+        Assert.True(viewModel.StartsWithWindows);
+        Assert.True(autoStart.IsEnabled);
+    }
+
+    [Fact]
     public void StartsWithWindows_WhenUntickRefused_StaysTicked()
     {
         var autoStart = new FakeAutoStart(isEnabled: true, refuseChanges: true);

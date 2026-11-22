@@ -127,6 +127,13 @@ public sealed partial class TickerViewModel : ObservableObject
         }
     }
 
+    // Tray menu items do not write their check state back, so they flip the setting through commands.
+    [RelayCommand]
+    private void ToggleAlwaysOnTop() => IsAlwaysOnTop = !IsAlwaysOnTop;
+
+    [RelayCommand]
+    private void ToggleStartsWithWindows() => StartsWithWindows = !StartsWithWindows;
+
     partial void OnStartsWithWindowsChanged(bool value)
     {
         if (_isRevertingStartsWithWindows)

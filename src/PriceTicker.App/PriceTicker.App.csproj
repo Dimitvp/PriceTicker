@@ -5,6 +5,7 @@
     <AssemblyName>PriceTicker</AssemblyName>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <ApplicationIcon>Assets\priceticker.ico</ApplicationIcon>
     <UserSecretsId>price-ticker-4c1d7f2a-9b3e-4f6a-8d21-6a0e5c9b7f13</UserSecretsId>
   </PropertyGroup>
 
@@ -29,6 +30,7 @@
 
   <ItemGroup>
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
   <ItemGroup>

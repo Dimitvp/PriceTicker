@@ -56,5 +56,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnHideClicked(object? sender, RoutedEventArgs e) => Hide();
+
     private void OnExitClicked(object? sender, RoutedEventArgs e) => Close();
 }

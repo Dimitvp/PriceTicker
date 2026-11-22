@@ -10,6 +10,8 @@
         Background="Transparent"
         TransparencyLevelHint="Transparent"
         Topmost="{Binding IsAlwaysOnTop}"
+        ShowInTaskbar="False"
+        Icon="/Assets/priceticker.ico"
         WindowStartupLocation="Manual">
 
   <Window.Styles>
@@ -48,6 +50,7 @@
     <Border.ContextMenu>
       <ContextMenu>
         <MenuItem Header="Refresh now" Command="{Binding RefreshCommand}" />
+        <MenuItem Header="Hide to tray" Click="OnHideClicked" />
         <MenuItem Header="Always on top" ToggleType="CheckBox" IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
         <MenuItem Header="Start with Windows" ToggleType="CheckBox"
                   IsChecked="{Binding StartsWithWindows, Mode=TwoWay}"

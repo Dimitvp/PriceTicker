@@ -6,7 +6,9 @@ Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs on Windows
 - Borderless, semi-transparent window; drag it anywhere, starts in the top-right corner.
 - Green / red change against the previous close; hover a row to see when the price is from.
 - If a refresh fails, the last price stays on screen, dimmed, with the reason in the tooltip.
-- Right-click: **Refresh now**, **Always on top**, **Start with Windows**, **Exit**.
+- Lives in the notification area (system tray), not the taskbar. Left-click the tray icon to
+  show or hide the widget; right-click it for **Show / hide**, **Refresh now**, **Always on top**,
+  **Start with Windows** and **Exit**. The widget's own right-click menu offers the same plus **Hide to tray**.
 - **Start with Windows** adds the running `PriceTicker.exe` to the current user's `Run` registry key
   (no admin rights; also visible in Task Manager → Startup apps). Tick it from the published exe,
   not from `dotnet run`, or Windows will start the copy in `bin\Debug`.

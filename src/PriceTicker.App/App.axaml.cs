@@ -18,6 +18,7 @@ public sealed partial class App : Application
 {
     private ServiceProvider? _services;
     private CancellationTokenSource? _shutdown;
+    private IClassicDesktopStyleApplicationLifetime? _desktop;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -27,6 +28,7 @@ public sealed partial class App : Application
         {
             desktop.MainWindow = CreateMainWindow();
             desktop.Exit += OnExit;
+            _desktop = desktop;
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -51,6 +53,8 @@ public sealed partial class App : Application
         _shutdown = new CancellationTokenSource();
         _ = viewModel.RunAutoRefreshAsync(_shutdown.Token);
 
+        // The tray icon and its menu bind to the application's data context.
+        DataContext = viewModel;
         return new MainWindow { DataContext = viewModel };
     }
 
@@ -74,6 +78,30 @@ public sealed partial class App : Application
                 VerticalAlignment = VerticalAlignment.Center,
             },
         };
+    }
+
+    private void OnTrayIconClicked(object? sender, EventArgs e) => ToggleMainWindow();
+
+    private void OnShowHideClicked(object? sender, EventArgs e) => ToggleMainWindow();
+
+    private void OnExitClicked(object? sender, EventArgs e) => _desktop?.Shutdown();
+
+    private void ToggleMainWindow()
+    {
+        if (_desktop?.MainWindow is not { } window)
+        {
+            return;
+        }
+
+        if (window.IsVisible)
+        {
+            window.Hide();
+        }
+        else
+        {
+            window.Show();
+            window.Activate();
+        }
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)

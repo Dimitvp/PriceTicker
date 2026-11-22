@@ -1,8 +1,36 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PriceTicker.App.ViewModels"
              x:Class="PriceTicker.App.App"
              RequestedThemeVariant="Dark">
   <Application.Styles>
     <FluentTheme />
   </Application.Styles>
+
+  <!-- The app lives in the notification area instead of the taskbar. -->
+  <TrayIcon.Icons>
+    <TrayIcons>
+      <TrayIcon x:DataType="vm:TickerViewModel"
+                Icon="/Assets/priceticker.ico"
+                ToolTipText="PriceTicker"
+                Clicked="OnTrayIconClicked">
+        <TrayIcon.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Show / hide" Click="OnShowHideClicked" />
+            <NativeMenuItem Header="Refresh now" Command="{Binding RefreshCommand}" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Always on top" ToggleType="CheckBox"
+                            IsChecked="{Binding IsAlwaysOnTop}"
+                            Command="{Binding ToggleAlwaysOnTopCommand}" />
+            <NativeMenuItem Header="Start with Windows" ToggleType="CheckBox"
+                            IsChecked="{Binding StartsWithWindows}"
+                            IsEnabled="{Binding IsAutoStartSupported}"
+                            Command="{Binding ToggleStartsWithWindowsCommand}" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Exit" Click="OnExitClicked" />
+          </NativeMenu>
+        </TrayIcon.Menu>
+      </TrayIcon>
+    </TrayIcons>
+  </TrayIcon.Icons>
 </Application>
