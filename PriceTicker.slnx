@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PriceTicker.App/PriceTicker.App.csproj" />
+    <Project Path="src/PriceTicker.Core/PriceTicker.Core.csproj" />
+    <Project Path="src/PriceTicker.Infrastructure/PriceTicker.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PriceTicker.Tests/PriceTicker.Tests.csproj" />
+  </Folder>
+</Solution>

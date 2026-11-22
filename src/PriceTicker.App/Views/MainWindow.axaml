@@ -1,0 +1,80 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PriceTicker.App.ViewModels"
+        x:Class="PriceTicker.App.Views.MainWindow"
+        x:DataType="vm:TickerViewModel"
+        Title="PriceTicker"
+        SizeToContent="WidthAndHeight"
+        CanResize="False"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Topmost="{Binding IsAlwaysOnTop}"
+        WindowStartupLocation="Manual">
+
+  <Window.Styles>
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="#F2F2F2" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.price">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.change">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="Foreground" Value="#A3A3A3" />
+    </Style>
+    <Style Selector="TextBlock.change.up">
+      <Setter Property="Foreground" Value="#4ADE80" />
+    </Style>
+    <Style Selector="TextBlock.change.down">
+      <Setter Property="Foreground" Value="#F87171" />
+    </Style>
+    <Style Selector="Grid.stale">
+      <Setter Property="Opacity" Value="0.5" />
+    </Style>
+    <Style Selector="TextBlock.footer">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="#8A8A8A" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="#D91C1C1E"
+          CornerRadius="10"
+          Padding="14,10"
+          PointerPressed="OnDragAreaPressed">
+    <Border.ContextMenu>
+      <ContextMenu>
+        <MenuItem Header="Refresh now" Command="{Binding RefreshCommand}" />
+        <MenuItem Header="Always on top" ToggleType="CheckBox" IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
+        <Separator />
+        <MenuItem Header="Exit" Click="OnExitClicked" />
+      </ContextMenu>
+    </Border.ContextMenu>
+
+    <StackPanel Spacing="6">
+      <ItemsControl ItemsSource="{Binding Items}" Grid.IsSharedSizeScope="True">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:QuoteItemViewModel">
+            <Grid Margin="0,2" Classes.stale="{Binding IsStale}" ToolTip.Tip="{Binding Detail}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Price" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="Change" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Margin="0,0,16,0" />
+              <TextBlock Grid.Column="1" Classes="price" Text="{Binding PriceText}" />
+              <TextBlock Grid.Column="2" Classes="change" Margin="14,0,0,0"
+                         Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
+                         Text="{Binding ChangeText}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Classes="footer" Text="{Binding LastUpdatedText}" HorizontalAlignment="Right" />
+    </StackPanel>
+  </Border>
+</Window>
