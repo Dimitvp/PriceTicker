@@ -31,3 +31,5 @@ dotnet_naming_style.underscore_camel.capitalization = camel_case
 [tests/**.cs]
 # Test method names use underscores: Method_Scenario_Expectation
 dotnet_diagnostic.CA1707.severity = none
+# Literal expected values inline read better than static fields in tests
+dotnet_diagnostic.CA1861.severity = none
