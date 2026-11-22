@@ -8,12 +8,12 @@ using PriceTicker.Tests.TestDoubles;
 
 namespace PriceTicker.Tests.Infrastructure;
 
-public sealed class TwelveDataQuoteProviderTests
+public sealed class TwelveDataProviderTests
 {
     private const string ApiKey = "test-key-123";
 
-    private static readonly Instrument Gold = TestInstruments.Create("gold", TwelveDataQuoteProvider.ProviderKey, "XAU/EUR");
-    private static readonly Instrument Bitcoin = TestInstruments.Create("btc", TwelveDataQuoteProvider.ProviderKey, "BTC/EUR");
+    private static readonly Instrument Gold = TestInstruments.Create("gold", TwelveDataProvider.ProviderKey, "XAU/EUR");
+    private static readonly Instrument Bitcoin = TestInstruments.Create("btc", TwelveDataProvider.ProviderKey, "BTC/EUR");
 
     private const string SingleQuote = """
         { "symbol": "XAU/EUR", "currency_base": "Gold Spot", "currency_quote": "EUR",
@@ -173,11 +173,11 @@ public sealed class TwelveDataQuoteProviderTests
             provider.GetQuotesAsync([Gold], new CancellationToken(canceled: true)));
     }
 
-    private static TwelveDataQuoteProvider CreateProvider(StubHttpMessageHandler handler, string? apiKey = ApiKey)
+    private static TwelveDataProvider CreateProvider(StubHttpMessageHandler handler, string? apiKey = ApiKey)
     {
-        return new TwelveDataQuoteProvider(
+        return new TwelveDataProvider(
             new StubHttpClientFactory(handler, new Uri("https://twelvedata.test/")),
             Options.Create(new TwelveDataOptions { ApiKey = apiKey }),
-            NullLogger<TwelveDataQuoteProvider>.Instance);
+            NullLogger<TwelveDataProvider>.Instance);
     }
 }

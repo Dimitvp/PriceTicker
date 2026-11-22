@@ -28,6 +28,6 @@ public sealed record Instrument
     /// <summary>Symbol in the provider's own notation, e.g. <c>SXR8.DE</c> or <c>XAU/EUR</c>.</summary>
     public string Symbol { get; }
 
-    /// <summary>Key of the <see cref="Quotes.IQuoteProvider"/> that prices this instrument.</summary>
+    /// <summary>Key of the provider (<see cref="IKeyedProvider"/>) that supplies this instrument's prices and chart.</summary>
     public string ProviderKey { get; }
 }

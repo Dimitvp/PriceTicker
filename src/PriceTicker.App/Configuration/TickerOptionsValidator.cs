@@ -9,9 +9,10 @@ namespace PriceTicker.App.Configuration;
 public sealed class TickerOptionsValidator : IValidateOptions<TickerOptions>
 {
     /// <summary>
-    /// Floor that keeps the free Twelve Data plan (8 credits a minute, 800 a day) within limits.
+    /// Floor that keeps one Twelve Data instrument within the free plan: each refresh costs a quote
+    /// credit and a chart credit, so every 4 minutes is about 720 of the 800 credits a day.
     /// </summary>
-    public static readonly TimeSpan MinimumRefreshInterval = TimeSpan.FromMinutes(1);
+    public static readonly TimeSpan MinimumRefreshInterval = TimeSpan.FromMinutes(4);
 
     public ValidateOptionsResult Validate(string? name, TickerOptions options)
     {

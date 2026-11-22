@@ -1,14 +1,13 @@
-using System.Globalization;
 using System.Text.Json;
 using PriceTicker.Core.Instruments;
 using PriceTicker.Core.Quotes;
+using static PriceTicker.Infrastructure.TwelveData.TwelveDataJson;
 
 namespace PriceTicker.Infrastructure.TwelveData;
 
 /// <summary>
 /// Turns a Twelve Data <c>/quote</c> payload into results. For a single symbol the API returns
-/// the quote object itself; for several it returns an object keyed by symbol. Each quote can
-/// instead be an error object (<c>"status": "error"</c>). Numbers arrive as strings.
+/// the quote object itself; for several it returns an object keyed by symbol.
 /// </summary>
 internal static class TwelveDataQuoteParser
 {
@@ -70,26 +69,6 @@ internal static class TwelveDataQuoteParser
         return new QuoteAvailable(quote);
     }
 
-    private static bool IsError(JsonElement element, out string message)
-    {
-        message = string.Empty;
-        if (element.ValueKind != JsonValueKind.Object
-            || !element.TryGetProperty("status", out var status)
-            || status.ValueKind != JsonValueKind.String
-            || status.GetString() != "error")
-        {
-            return false;
-        }
-
-        // The API's own message is not shown: it can echo request details. The code is enough.
-        message = element.TryGetProperty("code", out var code)
-            && code.ValueKind == JsonValueKind.Number
-            && code.TryGetInt32(out var number)
-            ? $"Provider error {number}."
-            : "Provider error.";
-        return true;
-    }
-
     // Stocks and ETFs report "currency"; crypto pairs may report nothing, so for a pair such as
     // "BTC/EUR" the quote currency is taken from the symbol itself.
     private static string GetCurrency(JsonElement element, string symbol) =>
@@ -103,33 +82,5 @@ internal static class TwelveDataQuoteParser
         var separator = symbol.LastIndexOf('/');
         var candidate = separator >= 0 ? symbol[(separator + 1)..] : string.Empty;
         return candidate.Length == 3 && candidate.All(char.IsAsciiLetterUpper) ? candidate : null;
-    }
-
-    private static string? TryGetString(JsonElement element, string propertyName) =>
-        element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
-
-    private static bool TryGetDecimal(JsonElement element, string propertyName, out decimal value)
-    {
-        value = 0m;
-        return TryGetString(element, propertyName) is { } text
-            && decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
-    }
-
-    private static bool TryGetInt64(JsonElement element, string propertyName, out long value)
-    {
-        value = 0;
-        if (!element.TryGetProperty(propertyName, out var property))
-        {
-            return false;
-        }
-
-        return property.ValueKind switch
-        {
-            JsonValueKind.Number => property.TryGetInt64(out value),
-            JsonValueKind.String => long.TryParse(property.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value),
-            _ => false,
-        };
     }
 }

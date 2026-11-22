@@ -1,10 +1,14 @@
 # PriceTicker
 
-A small always-on-top desktop widget that shows the prices of a personal list of ETFs, gold and
-Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs on Windows, macOS and Linux.
+A small always-on-top desktop widget that shows the prices and charts of a personal list of ETFs,
+gold and Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs on Windows, macOS and Linux.
 
 - Borderless, semi-transparent window; drag it anywhere, starts in the top-right corner.
-- Green / red change against the previous close; hover a row to see when the price is from.
+- A sparkline chart per row over a selectable range: **1D · 1W · 3M · 6M · 1Y**. The percentage
+  is the change over that range (for 1D: since the previous close). For exchange-traded instruments
+  1D is the last trading session; for Bitcoin it is the last 24 hours.
+- Green / red by direction; hover a name or price to see when the price is from, or a chart to see
+  why it is missing.
 - If a refresh fails, the last price stays on screen, dimmed, with the reason in the tooltip.
 - Lives in the notification area (system tray), not the taskbar. Left-click the tray icon to
   show or hide the widget; right-click it for **Show / hide**, **Refresh now**, **Always on top**,
@@ -18,7 +22,7 @@ Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs on Windows
 | Instruments | Provider | Key | Notes |
 |---|---|---|---|
 | European ETFs (Xetra `.DE`, Milan `.MI`, Paris `.PA`) and gold via Xetra-Gold `4GLD.DE` (≈ 1 g of gold in EUR) | Yahoo Finance chart endpoint | none | Unofficial and undocumented; personal use only; quotes are typically delayed. |
-| Bitcoin `BTC/EUR` | [Twelve Data](https://twelvedata.com) `/quote` | free | Free plan: 8 credits/minute, 800/day. One credit per symbol per refresh. Commodities such as `XAU/EUR` need a paid plan. |
+| Bitcoin `BTC/EUR` | [Twelve Data](https://twelvedata.com) `/quote` and `/time_series` | free | Free plan: 8 credits/minute, 800/day. Each refresh costs one credit for the quote and one for the chart (≈ 576/day at 5 minutes), plus one per range change. Commodities such as `XAU/EUR` need a paid plan. |
 
 Every provider sits behind `IQuoteProvider`, so a source can be replaced without touching the UI.
 
@@ -63,9 +67,10 @@ finance.yahoo.com and pick the listing on your exchange (`.DE` Xetra, `.MI` Bors
 
 ```
 src/
-  PriceTicker.Core            Domain: Instrument, Quote, QuoteResult; IQuoteProvider; QuoteService (routing)
-  PriceTicker.Infrastructure  Yahoo and Twelve Data providers, DI registration (IHttpClientFactory)
-  PriceTicker.App             Avalonia UI: MVVM view models, composition root, options validation
+  PriceTicker.Core            Domain: Instrument, Quote, PriceHistory; provider interfaces; quote and
+                              history services sharing one ProviderRouter
+  PriceTicker.Infrastructure  Yahoo and Twelve Data providers (quotes + history), DI registration
+  PriceTicker.App             Avalonia UI: MVVM view models, Sparkline control, composition root
 tests/
   PriceTicker.Tests           xUnit: providers with stubbed HTTP, routing, view models, validation
 ```
@@ -76,8 +81,9 @@ tests/
 
 ## Adding a provider
 
-1. Implement `IQuoteProvider` in Infrastructure (return one `QuoteResult` per instrument; don't throw for data errors).
-2. Register it in `ServiceCollectionExtensions.AddPriceTickerQuotes`.
+1. Implement `IQuoteProvider` (and `IPriceHistoryProvider` for charts) in Infrastructure: return one
+   result per instrument and don't throw for data errors.
+2. Register it in `ServiceCollectionExtensions.AddPriceTickerQuotes` under each interface it implements.
 3. Use its `Key` as `Provider` in `appsettings.json`.
 
 ## Disclaimer

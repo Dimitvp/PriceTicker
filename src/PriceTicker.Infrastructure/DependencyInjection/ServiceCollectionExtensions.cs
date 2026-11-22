@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using PriceTicker.Core.History;
 using PriceTicker.Core.Quotes;
 using PriceTicker.Infrastructure.TwelveData;
 using PriceTicker.Infrastructure.Yahoo;
@@ -18,7 +19,7 @@ public static class ServiceCollectionExtensions
     private const string HttpsRequired = "BaseAddress must be an absolute https URI.";
 
     /// <summary>
-    /// Registers <see cref="IQuoteService"/> and every built-in <see cref="IQuoteProvider"/>.
+    /// Registers the quote and history services and every built-in provider.
     /// Providers are singletons that create clients through <see cref="IHttpClientFactory"/>,
     /// so long-lived consumers never hold a stale <see cref="HttpClient"/>.
     /// </summary>
@@ -39,7 +40,7 @@ public static class ServiceCollectionExtensions
             .Validate(options => IsAbsoluteHttps(options.BaseAddress), HttpsRequired)
             .ValidateOnStart();
 
-        services.AddHttpClient(YahooChartQuoteProvider.HttpClientName, (provider, client) =>
+        services.AddHttpClient(YahooChartProvider.HttpClientName, (provider, client) =>
         {
             var options = provider.GetRequiredService<IOptions<YahooOptions>>().Value;
             client.BaseAddress = options.BaseAddress;
@@ -48,7 +49,7 @@ public static class ServiceCollectionExtensions
             client.MaxResponseContentBufferSize = MaxResponseBytes;
         });
 
-        services.AddHttpClient(TwelveDataQuoteProvider.HttpClientName, (provider, client) =>
+        services.AddHttpClient(TwelveDataProvider.HttpClientName, (provider, client) =>
         {
             var options = provider.GetRequiredService<IOptions<TwelveDataOptions>>().Value;
             client.BaseAddress = options.BaseAddress;
@@ -58,9 +59,16 @@ public static class ServiceCollectionExtensions
         })
         .RedactLoggedHeaders(["Authorization"]);
 
-        services.AddSingleton<IQuoteProvider, YahooChartQuoteProvider>();
-        services.AddSingleton<IQuoteProvider, TwelveDataQuoteProvider>();
+        // One instance per provider, exposed under each interface it implements.
+        services.AddSingleton<YahooChartProvider>();
+        services.AddSingleton<TwelveDataProvider>();
+        services.AddSingleton<IQuoteProvider>(sp => sp.GetRequiredService<YahooChartProvider>());
+        services.AddSingleton<IQuoteProvider>(sp => sp.GetRequiredService<TwelveDataProvider>());
+        services.AddSingleton<IPriceHistoryProvider>(sp => sp.GetRequiredService<YahooChartProvider>());
+        services.AddSingleton<IPriceHistoryProvider>(sp => sp.GetRequiredService<TwelveDataProvider>());
+
         services.AddSingleton<IQuoteService, QuoteService>();
+        services.AddSingleton<IPriceHistoryService, PriceHistoryService>();
 
         return services;
     }

@@ -8,11 +8,8 @@ namespace PriceTicker.Core.Quotes;
 /// report data problems (HTTP errors, unknown symbols, malformed payloads) as
 /// <see cref="QuoteUnavailable"/>. They throw only on cancellation.
 /// </remarks>
-public interface IQuoteProvider
+public interface IQuoteProvider : IKeyedProvider
 {
-    /// <summary>Key that <see cref="Instrument.ProviderKey"/> refers to.</summary>
-    string Key { get; }
-
     Task<IReadOnlyList<QuoteResult>> GetQuotesAsync(
         IReadOnlyList<Instrument> instruments,
         CancellationToken cancellationToken);

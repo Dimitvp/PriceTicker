@@ -1,5 +1,6 @@
 using System.Globalization;
 using PriceTicker.App.ViewModels;
+using PriceTicker.Core.History;
 using PriceTicker.Core.Quotes;
 using PriceTicker.Tests.TestDoubles;
 
@@ -97,6 +98,23 @@ public sealed class QuoteItemViewModelTests
         Assert.Equal("—", item.PriceText);
         Assert.False(item.IsStale);
         Assert.Equal("API key not set.", item.Detail);
+    }
+
+    [Fact]
+    public void ApplyHistory_UnavailableAfterChart_ClearsChartAndFallsBackToDailyChange()
+    {
+        var instrument = TestInstruments.Create("a");
+        var item = new QuoteItemViewModel(instrument);
+        item.Apply(new QuoteAvailable(new Quote(instrument, 110m, 100m, "EUR", DateTimeOffset.UnixEpoch)));
+        item.ApplyHistory(FakeHistoryService.History(ChartRange.Year, [instrument], 50m, 60m)[0]);
+        Assert.Equal("+120.00 %", item.ChangeText);
+
+        item.ApplyHistory(new HistoryUnavailable(instrument, "No chart data."));
+
+        Assert.Empty(item.ChartValues);
+        Assert.Equal("No chart data.", item.ChartStatus);
+        Assert.Equal("+10.00 %", item.ChangeText);
+        Assert.Equal("Daily change (chart unavailable)", item.ChangeDescription);
     }
 
     private static QuoteItemViewModel Apply(decimal price, decimal? previousClose, string currency = "EUR")

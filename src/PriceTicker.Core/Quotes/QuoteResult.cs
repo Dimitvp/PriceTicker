@@ -7,15 +7,12 @@ namespace PriceTicker.Core.Quotes;
 /// <see cref="QuoteAvailable"/> or <see cref="QuoteUnavailable"/>. A missing price is an
 /// expected outcome for a ticker, so it is modelled as data rather than as an exception.
 /// </summary>
-public abstract record QuoteResult
+public abstract record QuoteResult : InstrumentResult
 {
     private protected QuoteResult(Instrument instrument)
+        : base(instrument)
     {
-        ArgumentNullException.ThrowIfNull(instrument);
-        Instrument = instrument;
     }
-
-    public Instrument Instrument { get; }
 }
 
 public sealed record QuoteAvailable : QuoteResult

@@ -6,7 +6,7 @@ using PriceTicker.Tests.TestDoubles;
 
 namespace PriceTicker.Tests.Infrastructure;
 
-public sealed class YahooChartQuoteProviderTests
+public sealed class YahooChartProviderTests
 {
     private const string ValidChart = """
         {
@@ -30,7 +30,7 @@ public sealed class YahooChartQuoteProviderTests
     [Fact]
     public async Task GetQuotesAsync_WithValidChart_ReturnsQuoteFromMeta()
     {
-        var instrument = TestInstruments.Create("sxr8", YahooChartQuoteProvider.ProviderKey, "SXR8.DE");
+        var instrument = TestInstruments.Create("sxr8", YahooChartProvider.ProviderKey, "SXR8.DE");
         var provider = CreateProvider(StubHttpMessageHandler.Json(ValidChart));
 
         var results = await provider.GetQuotesAsync([instrument], CancellationToken.None);
@@ -142,6 +142,6 @@ public sealed class YahooChartQuoteProviderTests
         Assert.Equal("Network error.", Assert.IsType<QuoteUnavailable>(Assert.Single(results)).Reason);
     }
 
-    private static YahooChartQuoteProvider CreateProvider(StubHttpMessageHandler handler) =>
-        new(new StubHttpClientFactory(handler, new Uri("https://yahoo.test/")), NullLogger<YahooChartQuoteProvider>.Instance);
+    private static YahooChartProvider CreateProvider(StubHttpMessageHandler handler) =>
+        new(new StubHttpClientFactory(handler, new Uri("https://yahoo.test/")), NullLogger<YahooChartProvider>.Instance);
 }

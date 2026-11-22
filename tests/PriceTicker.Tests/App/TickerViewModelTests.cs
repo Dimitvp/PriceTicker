@@ -1,8 +1,5 @@
 using System.Globalization;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
-using PriceTicker.App.Configuration;
 using PriceTicker.App.Platform;
 using PriceTicker.App.ViewModels;
 using PriceTicker.Core.Quotes;
@@ -12,7 +9,7 @@ namespace PriceTicker.Tests.App;
 
 public sealed class TickerViewModelTests
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan Interval = TestViewModels.RefreshInterval;
 
     public TickerViewModelTests()
     {
@@ -190,22 +187,8 @@ public sealed class TickerViewModelTests
     }
 
     private static TickerViewModel CreateViewModel(IQuoteService service, TimeProvider clock, params string[] ids) =>
-        CreateViewModel(service, clock, new FakeAutoStart(), ids);
+        TestViewModels.Create(service, clock, ids: ids);
 
-    private static TickerViewModel CreateViewModel(IQuoteService service, TimeProvider clock, IAutoStart autoStart, params string[] ids)
-    {
-        var options = new TickerOptions
-        {
-            RefreshInterval = Interval,
-            Instruments = [.. ids.Select(id => new InstrumentOptions
-            {
-                Id = id,
-                DisplayName = id,
-                Symbol = id,
-                Provider = "Fake",
-            })],
-        };
-
-        return new TickerViewModel(service, Options.Create(options), clock, autoStart, NullLogger<TickerViewModel>.Instance);
-    }
+    private static TickerViewModel CreateViewModel(IQuoteService service, TimeProvider clock, IAutoStart autoStart, params string[] ids) =>
+        TestViewModels.Create(service, clock, autoStart, ids: ids);
 }
