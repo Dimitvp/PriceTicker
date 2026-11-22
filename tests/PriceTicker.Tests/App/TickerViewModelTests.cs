@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using PriceTicker.App.Configuration;
+using PriceTicker.App.Platform;
 using PriceTicker.App.ViewModels;
 using PriceTicker.Core.Quotes;
 using PriceTicker.Tests.TestDoubles;
@@ -112,7 +113,72 @@ public sealed class TickerViewModelTests
         Assert.Equal("7.00 EUR", viewModel.Items[0].PriceText);
     }
 
-    private static TickerViewModel CreateViewModel(IQuoteService service, TimeProvider clock, params string[] ids)
+    [Fact]
+    public void StartsWithWindows_ReflectsCurrentSystemState()
+    {
+        var viewModel = CreateViewModel(FakeQuoteService.PricingEverythingAt(7m), new FakeTimeProvider(), new FakeAutoStart(isEnabled: true), "a");
+
+        Assert.True(viewModel.StartsWithWindows);
+        Assert.True(viewModel.IsAutoStartSupported);
+    }
+
+    [Fact]
+    public void StartsWithWindows_WhenToggled_UpdatesSystem()
+    {
+        var autoStart = new FakeAutoStart();
+        var viewModel = CreateViewModel(FakeQuoteService.PricingEverythingAt(7m), new FakeTimeProvider(), autoStart, "a");
+
+        viewModel.StartsWithWindows = true;
+
+        Assert.True(autoStart.IsEnabled);
+        Assert.Equal(1, autoStart.ChangeAttempts);
+    }
+
+    [Fact]
+    public void StartsWithWindows_WhenSystemRefuses_RevertsCheckbox()
+    {
+        var autoStart = new FakeAutoStart(refuseChanges: true);
+        var viewModel = CreateViewModel(FakeQuoteService.PricingEverythingAt(7m), new FakeTimeProvider(), autoStart, "a");
+
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+
+        viewModel.StartsWithWindows = true;
+
+        Assert.False(viewModel.StartsWithWindows);
+        Assert.Equal(1, autoStart.ChangeAttempts);
+        Assert.Contains(nameof(TickerViewModel.StartsWithWindows), notifications);
+    }
+
+    [Fact]
+    public void StartsWithWindows_WhenUntickRefused_StaysTicked()
+    {
+        var autoStart = new FakeAutoStart(isEnabled: true, refuseChanges: true);
+        var viewModel = CreateViewModel(FakeQuoteService.PricingEverythingAt(7m), new FakeTimeProvider(), autoStart, "a");
+
+        viewModel.StartsWithWindows = false;
+
+        Assert.True(viewModel.StartsWithWindows);
+    }
+
+    [Fact]
+    public void StartsWithWindows_UntickWhenNotRegistered_StillClearsSystemEntry()
+    {
+        // e.g. an entry left by an older copy of the exe: IsEnabled is false, but unticking must still clean up.
+        var autoStart = new FakeAutoStart(isEnabled: false);
+        var viewModel = CreateViewModel(FakeQuoteService.PricingEverythingAt(7m), new FakeTimeProvider(), autoStart, "a");
+        viewModel.StartsWithWindows = true;
+
+        viewModel.StartsWithWindows = false;
+
+        Assert.Equal(2, autoStart.ChangeAttempts);
+        Assert.False(autoStart.IsEnabled);
+    }
+
+    private static TickerViewModel CreateViewModel(IQuoteService service, TimeProvider clock, params string[] ids) =>
+        CreateViewModel(service, clock, new FakeAutoStart(), ids);
+
+    private static TickerViewModel CreateViewModel(IQuoteService service, TimeProvider clock, IAutoStart autoStart, params string[] ids)
     {
         var options = new TickerOptions
         {
@@ -126,6 +192,6 @@ public sealed class TickerViewModelTests
             })],
         };
 
-        return new TickerViewModel(service, Options.Create(options), clock, NullLogger<TickerViewModel>.Instance);
+        return new TickerViewModel(service, Options.Create(options), clock, autoStart, NullLogger<TickerViewModel>.Instance);
     }
 }

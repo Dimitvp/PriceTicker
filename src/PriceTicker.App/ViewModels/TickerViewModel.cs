@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PriceTicker.App.Configuration;
+using PriceTicker.App.Platform;
 using PriceTicker.Core.Instruments;
 using PriceTicker.Core.Quotes;
 
@@ -13,27 +14,35 @@ namespace PriceTicker.App.ViewModels;
 public sealed partial class TickerViewModel : ObservableObject
 {
     private readonly IQuoteService _quoteService;
+    private readonly IAutoStart _autoStart;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<TickerViewModel> _logger;
     private readonly TimeSpan _refreshInterval;
     private readonly IReadOnlyList<Instrument> _instruments;
     private readonly Dictionary<string, QuoteItemViewModel> _itemsById;
     private bool _isRefreshing;
+    private bool _isRevertingStartsWithWindows;
 
     public TickerViewModel(
         IQuoteService quoteService,
         IOptions<TickerOptions> options,
         TimeProvider timeProvider,
+        IAutoStart autoStart,
         ILogger<TickerViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(quoteService);
+        ArgumentNullException.ThrowIfNull(autoStart);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(logger);
 
         _quoteService = quoteService;
         _timeProvider = timeProvider;
+        _autoStart = autoStart;
         _logger = logger;
+
+        // Field, not property: reading the current state must not write it back.
+        _startsWithWindows = autoStart.IsEnabled;
 
         var settings = options.Value;
         _refreshInterval = settings.RefreshInterval;
@@ -52,6 +61,12 @@ public sealed partial class TickerViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isAlwaysOnTop = true;
+
+    /// <summary>Bound to the "Start with Windows" menu item; changing it updates the system.</summary>
+    [ObservableProperty]
+    private bool _startsWithWindows;
+
+    public bool IsAutoStartSupported => _autoStart.IsSupported;
 
     public string LastUpdatedText => LastUpdated is { } updated
         ? $"Updated {updated.ToString("HH:mm", CultureInfo.CurrentCulture)}"
@@ -109,6 +124,32 @@ public sealed partial class TickerViewModel : ObservableObject
         finally
         {
             _isRefreshing = false;
+        }
+    }
+
+    partial void OnStartsWithWindowsChanged(bool value)
+    {
+        if (_isRevertingStartsWithWindows)
+        {
+            return;
+        }
+
+        // Always applied, even when it looks like a no-op: unticking also clears an entry
+        // left behind by an older copy of the exe.
+        if (_autoStart.TrySetEnabled(value))
+        {
+            return;
+        }
+
+        // The system refused: show the real state rather than a checkbox that lies.
+        _isRevertingStartsWithWindows = true;
+        try
+        {
+            StartsWithWindows = _autoStart.IsEnabled;
+        }
+        finally
+        {
+            _isRevertingStartsWithWindows = false;
         }
     }
 

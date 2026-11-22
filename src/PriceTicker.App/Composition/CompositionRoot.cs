@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PriceTicker.App.Configuration;
+using PriceTicker.App.Platform;
 using PriceTicker.App.ViewModels;
 using PriceTicker.Infrastructure.DependencyInjection;
 
@@ -34,6 +35,7 @@ internal static class CompositionRoot
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<TickerOptions>, TickerOptionsValidator>();
 
+        services.AddSingleton(CreateAutoStart);
         services.AddSingleton<TickerViewModel>();
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions
@@ -53,6 +55,19 @@ internal static class CompositionRoot
             provider.Dispose();
             throw;
         }
+    }
+
+    private static IAutoStart CreateAutoStart(IServiceProvider services)
+    {
+        var executablePath = Environment.ProcessPath;
+
+        // Under `dotnet PriceTicker.dll` the process is dotnet itself, which must not be auto-started.
+        var isOwnExecutable = executablePath is not null
+            && !Path.GetFileNameWithoutExtension(executablePath).Equals("dotnet", StringComparison.OrdinalIgnoreCase);
+
+        return OperatingSystem.IsWindows() && isOwnExecutable
+            ? new RunKeyAutoStart(new CurrentUserRunKey(), executablePath!, services.GetRequiredService<ILogger<RunKeyAutoStart>>())
+            : new UnsupportedAutoStart();
     }
 
     // Later sources override earlier ones: secrets and environment variables beat appsettings.json.

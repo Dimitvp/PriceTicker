@@ -49,6 +49,9 @@
       <ContextMenu>
         <MenuItem Header="Refresh now" Command="{Binding RefreshCommand}" />
         <MenuItem Header="Always on top" ToggleType="CheckBox" IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
+        <MenuItem Header="Start with Windows" ToggleType="CheckBox"
+                  IsChecked="{Binding StartsWithWindows, Mode=TwoWay}"
+                  IsVisible="{Binding IsAutoStartSupported}" />
         <Separator />
         <MenuItem Header="Exit" Click="OnExitClicked" />
       </ContextMenu>
