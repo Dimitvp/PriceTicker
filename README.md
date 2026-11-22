@@ -15,8 +15,8 @@ Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs on Windows
 
 | Instruments | Provider | Key | Notes |
 |---|---|---|---|
-| European ETFs (Xetra `.DE`, Milan `.MI`, Paris `.PA`) | Yahoo Finance chart endpoint | none | Unofficial and undocumented; personal use only; quotes are typically delayed. |
-| Gold `XAU/EUR`, Bitcoin `BTC/EUR` | [Twelve Data](https://twelvedata.com) `/quote` | free | Free plan: 8 credits/minute, 800/day. One credit per symbol per refresh. |
+| European ETFs (Xetra `.DE`, Milan `.MI`, Paris `.PA`) and gold via Xetra-Gold `4GLD.DE` (≈ 1 g of gold in EUR) | Yahoo Finance chart endpoint | none | Unofficial and undocumented; personal use only; quotes are typically delayed. |
+| Bitcoin `BTC/EUR` | [Twelve Data](https://twelvedata.com) `/quote` | free | Free plan: 8 credits/minute, 800/day. One credit per symbol per refresh. Commodities such as `XAU/EUR` need a paid plan. |
 
 Every provider sits behind `IQuoteProvider`, so a source can be replaced without touching the UI.
 
@@ -37,7 +37,7 @@ dotnet run --project src/PriceTicker.App
 Instead of user secrets you can set the environment variable
 `PRICETICKER_Providers__TwelveData__ApiKey`. **Never put the key in `appsettings.json`.**
 
-Without a key the ETFs still work; gold and Bitcoin show "API key not set."
+Without a key the ETFs and gold still work; Bitcoin shows "API key not set."
 
 ## Configuration
 
@@ -48,7 +48,7 @@ Without a key the ETFs still work; gold and Bitcoin show "API key not set."
   "RefreshInterval": "00:05:00",          // minimum 00:01:00
   "Instruments": [
     { "Id": "sxr8", "DisplayName": "S&P 500 · SXR8", "Symbol": "SXR8.DE", "Provider": "Yahoo" },
-    { "Id": "gold", "DisplayName": "Gold · oz",      "Symbol": "XAU/EUR", "Provider": "TwelveData" }
+    { "Id": "btc",  "DisplayName": "Bitcoin",        "Symbol": "BTC/EUR", "Provider": "TwelveData" }
   ]
 }
 ```

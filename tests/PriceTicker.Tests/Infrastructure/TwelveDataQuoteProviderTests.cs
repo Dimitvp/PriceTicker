@@ -78,6 +78,17 @@ public sealed class TwelveDataQuoteProviderTests
     }
 
     [Fact]
+    public async Task GetQuotesAsync_WhenCurrencyMissing_TakesItFromPairSymbol()
+    {
+        const string noCurrency = """{ "symbol": "BTC/EUR", "timestamp": 1763740800, "close": "55468.36" }""";
+        var provider = CreateProvider(StubHttpMessageHandler.Json(noCurrency));
+
+        var results = await provider.GetQuotesAsync([Bitcoin], CancellationToken.None);
+
+        Assert.Equal("EUR", Assert.IsType<QuoteAvailable>(Assert.Single(results)).Quote.Currency);
+    }
+
+    [Fact]
     public async Task GetQuotesAsync_WithBatch_ParsesEachSymbolIndependently()
     {
         var provider = CreateProvider(StubHttpMessageHandler.Json(BatchQuotes));

@@ -64,7 +64,7 @@ internal static class TwelveDataQuoteParser
             instrument,
             price,
             previousClose,
-            GetCurrency(element),
+            GetCurrency(element, instrument.Symbol),
             asOf);
 
         return new QuoteAvailable(quote);
@@ -90,9 +90,20 @@ internal static class TwelveDataQuoteParser
         return true;
     }
 
-    // Forex and crypto quotes report the quote currency; stocks and ETFs report "currency".
-    private static string GetCurrency(JsonElement element) =>
-        TryGetString(element, "currency_quote") ?? TryGetString(element, "currency") ?? string.Empty;
+    // Stocks and ETFs report "currency"; crypto pairs may report nothing, so for a pair such as
+    // "BTC/EUR" the quote currency is taken from the symbol itself.
+    private static string GetCurrency(JsonElement element, string symbol) =>
+        TryGetString(element, "currency_quote")
+        ?? TryGetString(element, "currency")
+        ?? QuoteCurrencyOf(symbol)
+        ?? string.Empty;
+
+    private static string? QuoteCurrencyOf(string symbol)
+    {
+        var separator = symbol.LastIndexOf('/');
+        var candidate = separator >= 0 ? symbol[(separator + 1)..] : string.Empty;
+        return candidate.Length == 3 && candidate.All(char.IsAsciiLetterUpper) ? candidate : null;
+    }
 
     private static string? TryGetString(JsonElement element, string propertyName) =>
         element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
