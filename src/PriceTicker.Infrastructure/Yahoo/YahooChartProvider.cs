@@ -64,11 +64,12 @@ public sealed partial class YahooChartProvider : IQuoteProvider, IPriceHistoryPr
             (instrument, reason) => new HistoryUnavailable(instrument, reason),
             cancellationToken);
 
-    // "1D" on Yahoo is the last trading session, which is what a chart of an ETF should show
-    // on a weekend; the finer intervals keep short ranges smooth.
+    // "1D" asks for five sessions and keeps the last trading day of bars (see YahooChartMapper):
+    // Yahoo's own range=1d is the *current* session, empty for its first minutes after the open
+    // (its intraday data is delayed), which left the 1D charts blank every morning.
     internal static string HistoryQuery(ChartRange range) => range switch
     {
-        ChartRange.Day => "range=1d&interval=5m",
+        ChartRange.Day => "range=5d&interval=5m",
         ChartRange.Week => "range=5d&interval=30m",
         ChartRange.ThreeMonths => "range=3mo&interval=1d",
         ChartRange.SixMonths => "range=6mo&interval=1d",

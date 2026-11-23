@@ -35,8 +35,51 @@ public sealed class YahooChartHistoryTests
         Assert.Equal(ChartRange.Day, history.Range);
     }
 
+    [Fact]
+    public void ToHistory_ForDay_KeepsTheLastTradingDayOfBarsAcrossSessions()
+    {
+        // Last session's 100 bars, then the first 2 bars after the next open (Yahoo's range=1d is empty then).
+        var bars = 120;
+        var timestamps = Enumerable.Range(0, bars).Select(i => 1_800_000_000L + (i * 300)).ToList();
+        var closes = Enumerable.Range(0, bars).Select(i => (decimal?)(100 + i)).ToList();
+        closes[10] = null;
+
+        var history = Day(timestamps, closes);
+
+        var start = bars - YahooChartMapper.DayBars;
+        Assert.Equal(YahooChartMapper.DayBars, history.Points.Count);
+        Assert.Equal(100m + start, history.Points[0].Price);
+        Assert.Equal(100m + bars - 1, history.Points[^1].Price);
+        Assert.Equal(100m + start - 1, history.Baseline);
+    }
+
+    [Fact]
+    public void ToHistory_ForDay_CountsEmptyBarsSoAnIlliquidEtfStillGetsOneDay()
+    {
+        var bars = 200;
+        var timestamps = Enumerable.Range(0, bars).Select(i => 1_800_000_000L + (i * 300)).ToList();
+        var closes = Enumerable.Range(0, bars).Select(i => i % 4 == 0 ? (decimal?)(100 + i) : null).ToList();
+
+        var history = Day(timestamps, closes);
+
+        Assert.True(history.Points[0].Time >= DateTimeOffset.FromUnixTimeSeconds(timestamps[bars - YahooChartMapper.DayBars]));
+        Assert.InRange(history.Points.Count, (YahooChartMapper.DayBars / 4) - 1, (YahooChartMapper.DayBars / 4) + 1);
+    }
+
+    private static PriceHistory Day(IReadOnlyList<long> timestamps, IReadOnlyList<decimal?> closes)
+    {
+        var chart = new YahooChartResult(
+            new YahooChartMeta("EUR", null, 1m, null, null, null, null),
+            timestamps,
+            new YahooIndicators([new YahooQuoteSeries(closes)]));
+
+        var result = YahooChartMapper.ToHistory(TestInstruments.Create("a", "Yahoo"), ChartRange.Day, chart);
+
+        return Assert.IsType<HistoryAvailable>(result).History;
+    }
+
     [Theory]
-    [InlineData(ChartRange.Day, "range=1d&interval=5m")]
+    [InlineData(ChartRange.Day, "range=5d&interval=5m")]
     [InlineData(ChartRange.Week, "range=5d&interval=30m")]
     [InlineData(ChartRange.ThreeMonths, "range=3mo&interval=1d")]
     [InlineData(ChartRange.SixMonths, "range=6mo&interval=1d")]

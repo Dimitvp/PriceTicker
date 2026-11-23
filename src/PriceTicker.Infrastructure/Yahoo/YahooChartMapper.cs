@@ -53,10 +53,26 @@ internal static class YahooChartMapper
         return exchange.Length == 0 ? null : new Market(exchange, MarketState.Unknown);
     }
 
+    /// <summary>
+    /// Five-minute bars in one trading day of the European exchanges used (09:00–17:30): the 1D
+    /// chart is a rolling day of trading, so right after the open it still shows the last session.
+    /// </summary>
+    internal const int DayBars = 102;
+
     public static HistoryResult ToHistory(Instrument instrument, ChartRange range, YahooChartResult? chart)
     {
-        var timestamps = chart?.Timestamps ?? [];
-        var closes = chart?.Indicators?.Quote is [var series, ..] ? series.Close ?? [] : [];
+        IReadOnlyList<long> timestamps = chart?.Timestamps ?? [];
+        IReadOnlyList<decimal?> closes = chart?.Indicators?.Quote is [var series, ..] ? series.Close ?? [] : [];
+        var previousClose = chart?.Meta?.ChartPreviousClose;
+
+        if (range == ChartRange.Day && timestamps.Count > DayBars)
+        {
+            // Bars are counted as time slots, not prices: an illiquid ETF with empty bars still gets one day.
+            var start = timestamps.Count - DayBars;
+            previousClose = closes.Take(start).LastOrDefault(close => close is >= 0m) ?? previousClose;
+            timestamps = [.. timestamps.Skip(start)];
+            closes = [.. closes.Skip(start)];
+        }
 
         // Timestamps and closes are parallel arrays; gaps (null closes) are skipped.
         var points = timestamps
@@ -70,6 +86,6 @@ internal static class YahooChartMapper
 
         return points.Count == 0
             ? new HistoryUnavailable(instrument, "No chart data.")
-            : new HistoryAvailable(new PriceHistory(instrument, range, points, chart?.Meta?.ChartPreviousClose));
+            : new HistoryAvailable(new PriceHistory(instrument, range, points, previousClose));
     }
 }
