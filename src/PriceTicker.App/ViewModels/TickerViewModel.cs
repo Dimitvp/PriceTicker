@@ -68,9 +68,13 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
         Items = [.. _instruments.Select(instrument =>
             new QuoteItemViewModel(instrument, settings.Holdings.TryGetValue(instrument.Id, out var holding) ? holding.ToHolding() : null, timeProvider))];
         _itemsById = Items.ToDictionary(item => item.InstrumentId, StringComparer.Ordinal);
+        Groups = BuildGroups(settings.Groups, Items);
     }
 
     public IReadOnlyList<QuoteItemViewModel> Items { get; }
+
+    /// <summary>The rows as shown: the configured groups in order, then any ungrouped rows.</summary>
+    public IReadOnlyList<QuoteGroupViewModel> Groups { get; }
 
     /// <summary>The physical gold bar panel (hidden when no bar is configured).</summary>
     public GoldBarViewModel GoldBar { get; }
@@ -311,6 +315,24 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
         {
             _isRevertingStartsWithWindows = false;
         }
+    }
+
+    private static List<QuoteGroupViewModel> BuildGroups(IEnumerable<GroupOptions> groups, IReadOnlyList<QuoteItemViewModel> items)
+    {
+        // Case-insensitive like the rest of the configuration; the validator has already rejected unknown Ids.
+        var byId = items.ToDictionary(item => item.InstrumentId, StringComparer.OrdinalIgnoreCase);
+
+        List<QuoteGroupViewModel> result = [.. groups.Select(group =>
+            new QuoteGroupViewModel(group.Title, group.Note, [.. group.Instruments.Select(id => byId[id])]))];
+
+        var grouped = result.SelectMany(group => group.Items).ToHashSet();
+        var rest = items.Where(item => !grouped.Contains(item)).ToList();
+        if (rest.Count > 0)
+        {
+            result.Add(new QuoteGroupViewModel(title: null, note: null, rest));
+        }
+
+        return result;
     }
 
     private async Task RefreshSafelyAsync(CancellationToken cancellationToken)

@@ -97,9 +97,9 @@ If the widget does not appear at all, look at the newest file's last lines first
 finance.yahoo.com and pick the listing on your exchange (`.DE` Xetra, `.MI` Borsa Italiana,
 `.PA` Euronext Paris). An invalid configuration stops the app at startup with a clear message.
 
-## Personal data: holdings and the gold bar
+## Personal data: holdings, groups and the gold bar
 
-Purchase prices, alert levels and the gold bar are personal, so they live in
+Purchase prices, alert levels, how you group your instruments and the gold bar are personal, so they live in
 `src/PriceTicker.App/appsettings.Local.json`, which is git-ignored and copied next to the exe on
 build. Start from `appsettings.Local.example.json`:
 
@@ -109,7 +109,12 @@ build. Start from `appsettings.Local.example.json`:
     "Holdings": {
       // Keyed by instrument Id. Prices exclude commissions; copy the alert levels from IBKR.
       "smh": { "PurchasePrice": 100.00, "ReviewAtOrBelow": 80.00, "SellAtOrBelow": 60.00, "SellAtOrAbove": 150.00 }
-    }
+    },
+    // Optional headed sections, in order; instruments in no group come last without a heading.
+    "Groups": [
+      { "Title": "Core", "Note": "monthly DCA, long term", "Instruments": [ "sxr8", "xsx6" ] },
+      { "Title": "Themes", "Note": "one-off buys with alerts", "Instruments": [ "smh" ] }
+    ]
   },
   "GoldBar": { "Name": "Gold bar · Valcambi 10 g", "PurchasePrice": 1000.00, "ProfitTargetsPercent": [5, 7] }
 }

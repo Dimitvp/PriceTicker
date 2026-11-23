@@ -66,6 +66,25 @@
       <Setter Property="Opacity" Value="0.5" />
     </Style>
 
+    <!-- Headed groups (Ticker:Groups) sit on a faint panel; the trailing ungrouped rows do not. -->
+    <Style Selector="Border.group.headed">
+      <Setter Property="Background" Value="#0FFFFFFF" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="4,6,4,4" />
+    </Style>
+    <Style Selector="StackPanel.group-heading">
+      <Setter Property="Margin" Value="12,0,0,4" />
+    </Style>
+    <Style Selector="TextBlock.group-title">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#D8D8DC" />
+    </Style>
+    <Style Selector="TextBlock.group-note">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="#8E8E93" />
+    </Style>
+
     <!-- Rows of held instruments: yellow at the review alert, reddish purple at a sell alert. -->
     <Style Selector="Border.row">
       <Setter Property="Padding" Value="8,3" />
@@ -192,50 +211,70 @@
         </ListBox.ItemTemplate>
       </ListBox>
 
-      <ItemsControl ItemsSource="{Binding Items}" Grid.IsSharedSizeScope="True">
+      <!-- One shared size scope over all groups keeps the columns aligned from group to group. -->
+      <ItemsControl ItemsSource="{Binding Groups}" Grid.IsSharedSizeScope="True">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Spacing="6" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:QuoteItemViewModel">
-            <Border Classes="row" Margin="0,1"
-                    Classes.review="{Binding IsReviewAlert}" Classes.sell="{Binding IsSellAlert}">
-            <Grid Classes.stale="{Binding IsStale}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
-                <ColumnDefinition Width="180" />
-                <ColumnDefinition Width="Auto" SharedSizeGroup="Price" />
-                <ColumnDefinition Width="Auto" SharedSizeGroup="Change" />
-              </Grid.ColumnDefinitions>
-              <StackPanel Grid.Column="0" Margin="0,0,18,0" VerticalAlignment="Center"
-                          Background="Transparent" ToolTip.Tip="{Binding AlertDescription}">
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="{Binding DisplayName}" />
-                  <Border Classes="badge" Classes.review="{Binding IsReviewAlert}" Classes.sell="{Binding IsSellAlert}"
-                          IsVisible="{Binding AlertBadge, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Text="{Binding AlertBadge}" />
-                  </Border>
+          <DataTemplate x:DataType="vm:QuoteGroupViewModel">
+            <Border Classes="group" Classes.headed="{Binding HasHeading}">
+              <StackPanel>
+                <StackPanel Classes="group-heading" Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasHeading}">
+                  <TextBlock Classes="group-title" Text="{Binding Title}" />
+                  <TextBlock Classes="group-note" Text="{Binding Note}" IsVisible="{Binding HasNote}" />
                 </StackPanel>
-                <TextBlock Classes="holding" Text="{Binding HoldingText}"
-                           IsVisible="{Binding HoldingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:QuoteItemViewModel">
+                    <Border Classes="row" Margin="0,1"
+                            Classes.review="{Binding IsReviewAlert}" Classes.sell="{Binding IsSellAlert}">
+                    <Grid Classes.stale="{Binding IsStale}">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                        <ColumnDefinition Width="180" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Price" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Change" />
+                      </Grid.ColumnDefinitions>
+                      <StackPanel Grid.Column="0" Margin="0,0,18,0" VerticalAlignment="Center"
+                                  Background="Transparent" ToolTip.Tip="{Binding AlertDescription}">
+                        <StackPanel Orientation="Horizontal">
+                          <TextBlock Text="{Binding DisplayName}" />
+                          <Border Classes="badge" Classes.review="{Binding IsReviewAlert}" Classes.sell="{Binding IsSellAlert}"
+                                  IsVisible="{Binding AlertBadge, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding AlertBadge}" />
+                          </Border>
+                        </StackPanel>
+                        <TextBlock Classes="holding" Text="{Binding HoldingText}"
+                                   IsVisible="{Binding HoldingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                      </StackPanel>
+                      <controls:Sparkline Grid.Column="1" Height="36"
+                                          Values="{Binding ChartValues}"
+                                          HoveredIndex="{Binding HoveredIndex, Mode=OneWayToSource}"
+                                          Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
+                                          ToolTip.Tip="{Binding ChartStatus}" />
+                      <StackPanel Grid.Column="2" Margin="18,0,0,0" VerticalAlignment="Center">
+                        <Panel>
+                          <!-- Invisible: reserves the widest price so hovering never resizes the window. -->
+                          <TextBlock Classes="price" Opacity="0" IsHitTestVisible="False" Text="{Binding WidestPriceText}" />
+                          <TextBlock Classes="price" Text="{Binding ShownPriceText}" ToolTip.Tip="{Binding Detail}" />
+                        </Panel>
+                        <TextBlock Classes="market" Classes.open="{Binding IsMarketOpen}" Text="{Binding MarketText}"
+                                   IsVisible="{Binding MarketText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                      </StackPanel>
+                      <!-- MinWidth fits a hovered date ("22.11.2026"), so hovering never resizes the window. -->
+                      <TextBlock Grid.Column="3" Classes="change" Margin="16,0,0,0" MinWidth="88" TextAlignment="Right"
+                                 Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
+                                 Classes.hovering="{Binding IsHovering}"
+                                 Text="{Binding ShownChangeText}" ToolTip.Tip="{Binding ChangeDescription}" />
+                    </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               </StackPanel>
-              <controls:Sparkline Grid.Column="1" Height="36"
-                                  Values="{Binding ChartValues}"
-                                  HoveredIndex="{Binding HoveredIndex, Mode=OneWayToSource}"
-                                  Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
-                                  ToolTip.Tip="{Binding ChartStatus}" />
-              <StackPanel Grid.Column="2" Margin="18,0,0,0" VerticalAlignment="Center">
-                <Panel>
-                  <!-- Invisible: reserves the widest price so hovering never resizes the window. -->
-                  <TextBlock Classes="price" Opacity="0" IsHitTestVisible="False" Text="{Binding WidestPriceText}" />
-                  <TextBlock Classes="price" Text="{Binding ShownPriceText}" ToolTip.Tip="{Binding Detail}" />
-                </Panel>
-                <TextBlock Classes="market" Classes.open="{Binding IsMarketOpen}" Text="{Binding MarketText}"
-                           IsVisible="{Binding MarketText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              </StackPanel>
-              <!-- MinWidth fits a hovered date ("22.11.2026"), so hovering never resizes the window. -->
-              <TextBlock Grid.Column="3" Classes="change" Margin="16,0,0,0" MinWidth="88" TextAlignment="Right"
-                         Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
-                         Classes.hovering="{Binding IsHovering}"
-                         Text="{Binding ShownChangeText}" ToolTip.Tip="{Binding ChangeDescription}" />
-            </Grid>
             </Border>
           </DataTemplate>
         </ItemsControl.ItemTemplate>

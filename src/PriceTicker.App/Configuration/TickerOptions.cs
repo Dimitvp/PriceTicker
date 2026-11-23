@@ -18,6 +18,24 @@ public sealed class TickerOptions
     /// </summary>
     public IDictionary<string, HoldingOptions> Holdings { get; init; } =
         new Dictionary<string, HoldingOptions>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Optional headed sections of the widget, in display order. Instruments in no group are shown
+    /// last, without a heading. Personal (it describes the strategy): keep it in appsettings.Local.json.
+    /// </summary>
+    public IList<GroupOptions> Groups { get; init; } = [];
+}
+
+/// <summary>One entry of <c>Ticker:Groups</c>: a heading over some instruments.</summary>
+public sealed class GroupOptions
+{
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>A reminder of what the group is for, shown after the title.</summary>
+    public string? Note { get; set; }
+
+    /// <summary>Instrument <see cref="InstrumentOptions.Id"/>s, in display order.</summary>
+    public IList<string> Instruments { get; init; } = [];
 }
 
 /// <summary>One entry of <c>Ticker:Instruments</c>. Validated by <see cref="TickerOptionsValidator"/>.</summary>

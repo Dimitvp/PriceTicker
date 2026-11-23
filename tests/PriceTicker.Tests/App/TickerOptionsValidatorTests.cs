@@ -76,6 +76,43 @@ public sealed class TickerOptionsValidatorTests
         AssertFailsWith(_validator.Validate(null, options), "PurchasePrice must be greater than zero");
     }
 
+    [Fact]
+    public void Validate_WithGroupsCoveringSomeInstruments_Succeeds()
+    {
+        var options = Options(TimeSpan.FromMinutes(5), Instrument("a"), Instrument("b"), Instrument("c"));
+        options.Groups.Add(Group("Core", "A", "b"));
+
+        Assert.True(_validator.Validate(null, options).Succeeded);
+    }
+
+    [Theory]
+    [InlineData("typo", "Ticker:Groups lists 'typo', which does not match")]
+    [InlineData("a", "Ticker:Groups lists 'a' more than once")]
+    public void Validate_WithUnknownOrRepeatedGroupMember_Fails(string secondGroupMember, string expected)
+    {
+        var options = Options(TimeSpan.FromMinutes(5), Instrument("a"), Instrument("b"));
+        options.Groups.Add(Group("Core", "a"));
+        options.Groups.Add(Group("Themes", secondGroupMember));
+
+        AssertFailsWith(_validator.Validate(null, options), expected);
+    }
+
+    [Fact]
+    public void Validate_WithUntitledOrEmptyGroup_Fails()
+    {
+        var options = Options(TimeSpan.FromMinutes(5), Instrument("a"));
+        options.Groups.Add(Group(" ", "a"));
+        options.Groups.Add(Group("Empty"));
+
+        var result = _validator.Validate(null, options);
+
+        AssertFailsWith(result, "Ticker:Groups:0 needs a Title");
+        AssertFailsWith(result, "Ticker:Groups:1 needs a Title");
+    }
+
+    private static GroupOptions Group(string title, params string[] ids) =>
+        new() { Title = title, Instruments = [.. ids] };
+
     private static void AssertFailsWith(ValidateOptionsResult result, string expectedFragment)
     {
         Assert.True(result.Failed);

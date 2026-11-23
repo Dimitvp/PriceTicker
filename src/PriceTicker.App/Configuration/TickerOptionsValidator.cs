@@ -49,9 +49,32 @@ public sealed class TickerOptionsValidator : IValidateOptions<TickerOptions>
             .Where(holding => holding.Value.PurchasePrice <= 0m)
             .Select(holding => $"Ticker:Holdings:{holding.Key}:PurchasePrice must be greater than zero."));
 
+        failures.AddRange(ValidateGroups(options.Groups, instrumentIds));
+
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);
+    }
+
+    private static List<string> ValidateGroups(IList<GroupOptions> groups, HashSet<string> instrumentIds)
+    {
+        var failures = groups
+            .Select((group, index) => (group, index))
+            .Where(entry => string.IsNullOrWhiteSpace(entry.group.Title) || entry.group.Instruments.Count == 0)
+            .Select(entry => $"Ticker:Groups:{entry.index} needs a Title and at least one instrument Id.")
+            .ToList();
+
+        var grouped = groups.SelectMany(group => group.Instruments).ToList();
+        failures.AddRange(grouped
+            .Where(id => !instrumentIds.Contains(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(id => $"Ticker:Groups lists '{id}', which does not match any instrument Id."));
+        failures.AddRange(grouped
+            .GroupBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .Where(sameId => sameId.Count() > 1)
+            .Select(sameId => $"Ticker:Groups lists '{sameId.Key}' more than once."));
+
+        return failures;
     }
 
     private static bool IsAnyBlank(InstrumentOptions instrument) =>

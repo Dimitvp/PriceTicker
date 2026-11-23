@@ -22,6 +22,7 @@ internal static class TestViewModels
         IAutoStart? autoStart = null,
         IPriceHistoryService? history = null,
         GoldBarViewModel? goldBar = null,
+        IList<GroupOptions>? groups = null,
         params string[] ids)
     {
         var options = new TickerOptions
@@ -34,6 +35,7 @@ internal static class TestViewModels
                 Symbol = id,
                 Provider = "Fake",
             })],
+            Groups = groups ?? [],
         };
 
         return new TickerViewModel(
