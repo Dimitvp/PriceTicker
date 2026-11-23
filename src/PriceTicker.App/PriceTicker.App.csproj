@@ -6,6 +6,8 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <ApplicationIcon>Assets\priceticker.ico</ApplicationIcon>
+    <!-- For the native message box shown when the app cannot start at all. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <UserSecretsId>price-ticker-4c1d7f2a-9b3e-4f6a-8d21-6a0e5c9b7f13</UserSecretsId>
   </PropertyGroup>
 
@@ -26,6 +28,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 
   <ItemGroup>

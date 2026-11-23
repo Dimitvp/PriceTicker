@@ -7,6 +7,7 @@ using PriceTicker.App.Configuration;
 using PriceTicker.App.Platform;
 using PriceTicker.App.ViewModels;
 using PriceTicker.Infrastructure.DependencyInjection;
+using Serilog;
 
 namespace PriceTicker.App.Composition;
 
@@ -25,7 +26,11 @@ internal static class CompositionRoot
         var configuration = BuildConfiguration();
 
         var services = new ServiceCollection();
-        services.AddLogging(logging => logging.AddDebug().SetMinimumLevel(LogLevel.Information));
+        // Serilog's static logger is set up in Program.Main, before anything else can fail.
+        services.AddLogging(logging => logging
+            .AddDebug()
+            .AddSerilog(dispose: false)
+            .SetMinimumLevel(LogLevel.Information));
         services.TryAddSingleton(TimeProvider.System);
 
         services.AddPriceTickerQuotes(configuration);

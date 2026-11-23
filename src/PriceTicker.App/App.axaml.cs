@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,8 +9,10 @@ using Avalonia.Media;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using PriceTicker.App.Composition;
+using PriceTicker.App.Diagnostics;
 using PriceTicker.App.ViewModels;
 using PriceTicker.App.Views;
+using Serilog;
 
 namespace PriceTicker.App;
 
@@ -45,6 +48,7 @@ public sealed partial class App : Application
         catch (Exception ex)
         {
             // A WinExe has no console: without a window the user would see nothing at all.
+            Log.Error(ex, "PriceTicker could not start.");
             return CreateStartupErrorWindow(ex);
         }
 
@@ -72,7 +76,7 @@ public sealed partial class App : Application
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
             Content = new TextBlock
             {
-                Text = $"PriceTicker could not start. Check appsettings.json and your user secrets.{Environment.NewLine}{Environment.NewLine}{details}",
+                Text = $"PriceTicker could not start. Check appsettings.json and your user secrets.{Environment.NewLine}{Environment.NewLine}{details}{Environment.NewLine}{Environment.NewLine}Log: {AppLog.Folder}",
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(20),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -85,6 +89,19 @@ public sealed partial class App : Application
     private void OnShowHideClicked(object? sender, EventArgs e) => ToggleMainWindow();
 
     private void OnExitClicked(object? sender, EventArgs e) => _desktop?.Shutdown();
+
+    private void OnOpenLogFolderClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppLog.Folder);
+            using var _ = Process.Start(new ProcessStartInfo(AppLog.Folder) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            Log.Warning(ex, "Could not open the log folder {Folder}.", AppLog.Folder);
+        }
+    }
 
     private void ToggleMainWindow()
     {

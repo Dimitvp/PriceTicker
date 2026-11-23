@@ -15,10 +15,10 @@ gold and Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs o
   or take-profit at +50%). Hover the name to see the alert levels.
 - Optional **gold bar panel**: a physical bar's buy and buyback prices at Tavex and igold (read from
   their public product pages), what was paid, and the buyback prices that give the profit targets.
-  A buyback price that reaches a target turns green.
+  A buyback price that reaches a target turns blue and gets a ✓.
 - Lives in the notification area (system tray), not the taskbar. Left-click the tray icon to
   show or hide the widget; right-click it for **Show / hide**, **Refresh now**, **Always on top**,
-  **Start with Windows** and **Exit**. The widget's own right-click menu offers the same plus **Hide to tray**.
+  **Start with Windows**, **Open log folder** and **Exit**. The widget's own right-click menu offers the same plus **Hide to tray**.
 - **Start with Windows** adds the running `PriceTicker.exe` to the current user's `Run` registry key
   (no admin rights; also visible in Task Manager → Startup apps). Tick it from the published exe,
   not from `dotnet run`, or Windows will start the copy in `bin\Debug`.
@@ -50,6 +50,34 @@ Instead of user secrets you can set the environment variable
 `PRICETICKER_Providers__TwelveData__ApiKey`. **Never put the key in `appsettings.json`.**
 
 Without a key the ETFs and gold still work; Bitcoin shows "API key not set."
+
+### Building the exe
+
+```bash
+dotnet publish src/PriceTicker.App -c Release -p:PublishProfile=win-x64
+```
+
+This writes one self-contained `publish/PriceTicker.exe` (about 100 MB) plus the `appsettings*.json` files.
+Always use the profile: it bundles Skia's native libraries, and an exe built without them closes
+on start before it can show anything.
+
+## Logs
+
+Everything worth investigating — start and stop, failed requests to Yahoo, Twelve Data, Tavex or igold,
+pages whose layout changed, crashes — goes to one file per day in
+`%LOCALAPPDATA%\PriceTicker\logs\priceticker-YYYYMMDD.log`, kept for 14 days.
+Open the folder from the tray menu (**Open log folder**) or with `Win+R` → `%LOCALAPPDATA%\PriceTicker\logs`.
+
+Each line reads `time [level] source: message`, with the exception below it for errors:
+
+| Level | Meaning |
+|---|---|
+| `INF` | Normal events: start, stop. |
+| `WRN` | One source failed (HTTP error, timeout, changed page); the rest keep working. |
+| `ERR` | A whole refresh or chart load failed, or the app could not start. |
+| `FTL` | The app crashed. It also shows a message box pointing here. |
+
+If the widget does not appear at all, look at the newest file's last lines first.
 
 ## Configuration
 

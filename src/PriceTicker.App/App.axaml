@@ -27,6 +27,7 @@
                             IsEnabled="{Binding IsAutoStartSupported}"
                             Command="{Binding ToggleStartsWithWindowsCommand}" />
             <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Open log folder" Click="OnOpenLogFolderClicked" />
             <NativeMenuItem Header="Exit" Click="OnExitClicked" />
           </NativeMenu>
         </TrayIcon.Menu>
