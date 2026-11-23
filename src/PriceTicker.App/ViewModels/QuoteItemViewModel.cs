@@ -33,15 +33,36 @@ public sealed partial class QuoteItemViewModel : ObservableObject
 
     public string InstrumentId { get; }
 
+    /// <summary>A position (quantity and money put in) is configured, so the three position columns have values.</summary>
+    public bool HasPosition => _holding?.Position is not null;
+
     public string DisplayName { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShownPriceText))]
     private string _priceText = "—";
 
-    /// <summary>"Bought 100.00 · +5.00 %" under the name; empty for instruments not held.</summary>
+    /// <summary>"Bought 100.00 · +5.00 %" under the name; empty without a one-off purchase price.</summary>
     [ObservableProperty]
     private string _holdingText = string.Empty;
+
+    /// <summary>"1,608.51": the money put into the position so far; empty when no position is configured.</summary>
+    [ObservableProperty]
+    private string _investedText = string.Empty;
+
+    /// <summary>"1,580.15": what selling the whole position now would bring, before the sale's costs.</summary>
+    [ObservableProperty]
+    private string _positionValueText = string.Empty;
+
+    /// <summary>"-1.76 %": the whole position against what was put in.</summary>
+    [ObservableProperty]
+    private string _positionGainText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isPositionUp;
+
+    [ObservableProperty]
+    private bool _isPositionDown;
 
     /// <summary>The review alert (−20%) has been reached: the row turns yellow.</summary>
     [ObservableProperty]
@@ -196,6 +217,21 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         IsMarketOpen = quote.Market?.State == MarketState.Open;
     }
 
+    private void ShowPosition(Position? position, decimal price)
+    {
+        if (position is null)
+        {
+            return;
+        }
+
+        var gain = position.GainPercent(price);
+        InvestedText = Formats.Price(position.Invested);
+        PositionValueText = Formats.Price(position.ValueAt(price));
+        PositionGainText = $"{Formats.Signed(gain)} %";
+        IsPositionUp = gain > 0m;
+        IsPositionDown = gain < 0m;
+    }
+
     private void ShowHolding(decimal price)
     {
         if (_holding is null)
@@ -203,9 +239,10 @@ public sealed partial class QuoteItemViewModel : ObservableObject
             return;
         }
 
-        var culture = CultureInfo.CurrentCulture;
-        var gain = _holding.GainPercent(price);
-        HoldingText = $"Bought {Formats.ExactPrice(_holding.PurchasePrice)} · {Formats.Signed(gain)} %";
+        HoldingText = _holding.PurchasePrice is { } purchasePrice
+            ? $"Bought {Formats.ExactPrice(purchasePrice)} · {Formats.Signed(_holding.GainPercent(price)!.Value)} %"
+            : string.Empty;
+        ShowPosition(_holding.Position, price);
 
         var level = _holding.Alerts.Evaluate(price);
         IsReviewAlert = level == AlertLevel.Review;

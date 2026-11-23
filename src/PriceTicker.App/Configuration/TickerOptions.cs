@@ -53,12 +53,13 @@ public sealed class InstrumentOptions
 }
 
 /// <summary>
-/// <c>Ticker:Holdings:&lt;id&gt;</c>. Copy the alert prices from the broker (IBKR price alerts);
-/// the purchase price excludes commissions, as the alerts do.
+/// <c>Ticker:Holdings:&lt;id&gt;</c>. Give the purchase price for a one-off buy (the base of the broker's
+/// alerts), and/or Quantity with Invested for the position as the broker shows it.
 /// </summary>
 public sealed class HoldingOptions
 {
-    public decimal PurchasePrice { get; set; }
+    /// <summary>Price of a one-off purchase, excluding commissions. Leave out for regular (DCA) purchases.</summary>
+    public decimal? PurchasePrice { get; set; }
 
     /// <summary>The "review the thesis" alert (−20%).</summary>
     public decimal? ReviewAtOrBelow { get; set; }
@@ -69,6 +70,18 @@ public sealed class HoldingOptions
     /// <summary>The take-profit alert (+50%, sell half).</summary>
     public decimal? SellAtOrAbove { get; set; }
 
+    /// <summary>Units held (IBKR: Position). Set together with <see cref="Invested"/>.</summary>
+    public decimal? Quantity { get; set; }
+
+    /// <summary>Total money put in, commissions included (IBKR: Position × Avg Price, or Cost Basis).</summary>
+    public decimal? Invested { get; set; }
+
+    public bool HasPosition => Quantity is not null && Invested is not null;
+
     public Holding ToHolding() =>
-        new(PurchasePrice, new PriceAlerts(ReviewAtOrBelow, SellAtOrBelow, SellAtOrAbove));
+        new(
+            PurchasePrice,
+            new PriceAlerts(ReviewAtOrBelow, SellAtOrBelow, SellAtOrAbove),
+            HasPosition ? new Position(Quantity!.Value, Invested!.Value) : null);
 }
+

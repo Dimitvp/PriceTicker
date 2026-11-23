@@ -77,6 +77,35 @@ public sealed class TickerOptionsValidatorTests
     }
 
     [Fact]
+    public void Validate_WithPositionOnly_Succeeds()
+    {
+        var options = Options(TimeSpan.FromMinutes(5), Instrument("a"));
+        options.Holdings["a"] = new HoldingOptions { Quantity = 2.5m, Invested = 250m };
+
+        Assert.True(_validator.Validate(null, options).Succeeded);
+    }
+
+    [Theory]
+    [InlineData(2.5, null, "needs both Quantity and Invested")]
+    [InlineData(0.0, 250.0, "Quantity and Invested must be greater than zero")]
+    public void Validate_WithIncompletePosition_Fails(double quantity, double? invested, string expected)
+    {
+        var options = Options(TimeSpan.FromMinutes(5), Instrument("a"));
+        options.Holdings["a"] = new HoldingOptions { Quantity = (decimal)quantity, Invested = (decimal?)invested };
+
+        AssertFailsWith(_validator.Validate(null, options), expected);
+    }
+
+    [Fact]
+    public void Validate_WithEmptyHolding_Fails()
+    {
+        var options = Options(TimeSpan.FromMinutes(5), Instrument("a"));
+        options.Holdings["a"] = new HoldingOptions();
+
+        AssertFailsWith(_validator.Validate(null, options), "needs a PurchasePrice, or Quantity and Invested");
+    }
+
+    [Fact]
     public void Validate_WithGroupsCoveringSomeInstruments_Succeeds()
     {
         var options = Options(TimeSpan.FromMinutes(5), Instrument("a"), Instrument("b"), Instrument("c"));

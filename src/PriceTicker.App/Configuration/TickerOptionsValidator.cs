@@ -45,15 +45,37 @@ public sealed class TickerOptionsValidator : IValidateOptions<TickerOptions>
         failures.AddRange(options.Holdings
             .Where(holding => !instrumentIds.Contains(holding.Key))
             .Select(holding => $"Ticker:Holdings:{holding.Key} does not match any instrument Id."));
-        failures.AddRange(options.Holdings
-            .Where(holding => holding.Value.PurchasePrice <= 0m)
-            .Select(holding => $"Ticker:Holdings:{holding.Key}:PurchasePrice must be greater than zero."));
+        failures.AddRange(options.Holdings.SelectMany(holding => ValidateHolding(holding.Key, holding.Value)));
 
         failures.AddRange(ValidateGroups(options.Groups, instrumentIds));
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);
+    }
+
+    private static IEnumerable<string> ValidateHolding(string id, HoldingOptions holding)
+    {
+        var prefix = $"Ticker:Holdings:{id}";
+
+        if (holding.PurchasePrice <= 0m)
+        {
+            yield return $"{prefix}:PurchasePrice must be greater than zero.";
+        }
+
+        if ((holding.Quantity is null) != (holding.Invested is null))
+        {
+            yield return $"{prefix} needs both Quantity and Invested, or neither.";
+        }
+        else if (holding.Quantity <= 0m || holding.Invested <= 0m)
+        {
+            yield return $"{prefix}:Quantity and Invested must be greater than zero.";
+        }
+
+        if (holding.PurchasePrice is null && !holding.HasPosition)
+        {
+            yield return $"{prefix} needs a PurchasePrice, or Quantity and Invested.";
+        }
     }
 
     private static List<string> ValidateGroups(IList<GroupOptions> groups, HashSet<string> instrumentIds)

@@ -138,6 +138,28 @@ public sealed class HoldingAndGoldBarTests
     }
 
     [Fact]
+    public void Row_WithPosition_ShowsInvestedValueAndGain()
+    {
+        var item = RowAt(new Holding(null, PriceAlerts.None, new Position(2m, 1000m)), price: 450m);
+
+        Assert.Equal(Formats(1000m), item.InvestedText);
+        Assert.Equal(Formats(900m), item.PositionValueText);
+        Assert.Equal($"{(-10m).ToString("+0.00;-0.00;0.00", CultureInfo.CurrentCulture)} %", item.PositionGainText);
+        Assert.True(item.IsPositionDown);
+        Assert.False(item.IsPositionUp);
+    }
+
+    [Fact]
+    public void Row_WithPositionButNoPurchasePrice_ShowsNoBoughtLine()
+    {
+        var item = RowAt(new Holding(null, PriceAlerts.None, new Position(2m, 1000m)), price: 550m);
+
+        Assert.Equal(string.Empty, item.HoldingText);
+        Assert.True(item.IsPositionUp);
+        Assert.True(item.HasPosition);
+    }
+
+    [Fact]
     public void Row_WithoutHolding_ShowsNothingExtra()
     {
         var instrument = TestInstruments.Create("btc");
@@ -145,6 +167,9 @@ public sealed class HoldingAndGoldBarTests
         item.Apply(new QuoteAvailable(new Quote(instrument, 55000m, null, "EUR", DateTimeOffset.UnixEpoch)));
 
         Assert.Equal(string.Empty, item.HoldingText);
+        Assert.Equal(string.Empty, item.InvestedText);
+        Assert.Equal(string.Empty, item.PositionGainText);
+        Assert.False(item.HasPosition);
         Assert.Null(item.AlertDescription);
         Assert.False(item.IsReviewAlert || item.IsSellAlert);
     }
@@ -249,6 +274,8 @@ public sealed class HoldingAndGoldBarTests
 
     private static FakeTimeProvider ClockAt(DateTime localTime, TimeSpan offset) =>
         new(new DateTimeOffset(localTime, offset));
+
+    private static string Formats(decimal value) => value.ToString("N2", CultureInfo.CurrentCulture);
 
     private static QuoteItemViewModel RowWithMarket(Market? market, TimeProvider? clock = null)
     {

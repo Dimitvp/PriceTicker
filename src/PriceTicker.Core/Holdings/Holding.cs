@@ -32,22 +32,36 @@ public sealed record PriceAlerts(decimal? ReviewAtOrBelow, decimal? SellAtOrBelo
     }
 }
 
-/// <summary>What was paid for an instrument and the alerts that watch it.</summary>
+/// <summary>
+/// What is known about an instrument that is held: a one-off purchase price that the broker
+/// alerts were set from, the size of the position, or both.
+/// </summary>
 public sealed record Holding
 {
-    public Holding(decimal purchasePrice, PriceAlerts alerts)
+    public Holding(decimal? purchasePrice, PriceAlerts alerts, Position? position = null)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(purchasePrice);
+        if (purchasePrice is { } price)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(price);
+        }
+
         ArgumentNullException.ThrowIfNull(alerts);
 
         PurchasePrice = purchasePrice;
         Alerts = alerts;
+        Position = position;
     }
 
-    /// <summary>Average purchase price, excluding commissions (the base the alerts were set from).</summary>
-    public decimal PurchasePrice { get; }
+    /// <summary>
+    /// Price of a one-off purchase, excluding commissions (the base the alerts were set from).
+    /// None for a position built up by regular purchases.
+    /// </summary>
+    public decimal? PurchasePrice { get; }
 
     public PriceAlerts Alerts { get; }
 
-    public decimal GainPercent(decimal price) => (price - PurchasePrice) / PurchasePrice * 100m;
+    public Position? Position { get; }
+
+    /// <summary>Change against <see cref="PurchasePrice"/> in percent; null without one.</summary>
+    public decimal? GainPercent(decimal price) => (price - PurchasePrice) / PurchasePrice * 100m;
 }

@@ -66,6 +66,25 @@
       <Setter Property="Opacity" Value="0.5" />
     </Style>
 
+    <!-- Position columns (Ticker:Holdings with Quantity and Invested). -->
+    <Style Selector="TextBlock.position">
+      <Setter Property="Margin" Value="20,0,0,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+    <Style Selector="TextBlock.position.up">
+      <Setter Property="Foreground" Value="{StaticResource UpBrush}" />
+    </Style>
+    <Style Selector="TextBlock.position.down">
+      <Setter Property="Foreground" Value="{StaticResource DownBrush}" />
+    </Style>
+    <Style Selector="TextBlock.column-heading">
+      <Setter Property="Margin" Value="20,0,0,0" />
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="#8E8E93" />
+    </Style>
+
     <!-- Headed groups (Ticker:Groups) sit on a faint panel; the trailing ungrouped rows do not. -->
     <Style Selector="Border.group.headed">
       <Setter Property="Background" Value="#0FFFFFFF" />
@@ -211,8 +230,27 @@
         </ListBox.ItemTemplate>
       </ListBox>
 
-      <!-- One shared size scope over all groups keeps the columns aligned from group to group. -->
-      <ItemsControl ItemsSource="{Binding Groups}" Grid.IsSharedSizeScope="True">
+      <!-- One shared size scope over the headings and all groups keeps the columns aligned. -->
+      <StackPanel Spacing="2" Grid.IsSharedSizeScope="True">
+      <!-- Margin: group padding (4) + the row's alert border (4) and padding (8) on the left; 4 + 8 on the right. -->
+      <Grid Margin="16,0,12,0" IsVisible="{Binding ShowsPositions}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+          <ColumnDefinition Width="180" />
+          <ColumnDefinition Width="Auto" SharedSizeGroup="Price" />
+          <ColumnDefinition Width="Auto" SharedSizeGroup="Change" />
+          <ColumnDefinition Width="Auto" SharedSizeGroup="Invested" />
+          <ColumnDefinition Width="Auto" SharedSizeGroup="Value" />
+          <ColumnDefinition Width="Auto" SharedSizeGroup="Gain" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="4" Classes="column-heading" Text="Invested"
+                   ToolTip.Tip="Money put in so far, commissions included (EUR)" />
+        <TextBlock Grid.Column="5" Classes="column-heading" Text="Value now"
+                   ToolTip.Tip="What selling the whole position at this price would bring, before the sale's costs (EUR)" />
+        <TextBlock Grid.Column="6" Classes="column-heading" Text="Gain"
+                   ToolTip.Tip="The whole position against the money put in" />
+      </Grid>
+      <ItemsControl ItemsSource="{Binding Groups}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <StackPanel Spacing="6" />
@@ -237,6 +275,9 @@
                         <ColumnDefinition Width="180" />
                         <ColumnDefinition Width="Auto" SharedSizeGroup="Price" />
                         <ColumnDefinition Width="Auto" SharedSizeGroup="Change" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Invested" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Value" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Gain" />
                       </Grid.ColumnDefinitions>
                       <StackPanel Grid.Column="0" Margin="0,0,18,0" VerticalAlignment="Center"
                                   Background="Transparent" ToolTip.Tip="{Binding AlertDescription}">
@@ -269,6 +310,12 @@
                                  Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
                                  Classes.hovering="{Binding IsHovering}"
                                  Text="{Binding ShownChangeText}" ToolTip.Tip="{Binding ChangeDescription}" />
+                      <!-- The position columns: empty for instruments without a configured position. -->
+                      <TextBlock Grid.Column="4" Classes="position" Text="{Binding InvestedText}" />
+                      <TextBlock Grid.Column="5" Classes="position" Text="{Binding PositionValueText}" />
+                      <TextBlock Grid.Column="6" Classes="position" MinWidth="72"
+                                 Classes.up="{Binding IsPositionUp}" Classes.down="{Binding IsPositionDown}"
+                                 Text="{Binding PositionGainText}" />
                     </Grid>
                     </Border>
                   </DataTemplate>
@@ -279,6 +326,7 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
+      </StackPanel>
 
       <Border IsVisible="{Binding GoldBar.IsVisible}" Background="#14FFFFFF" CornerRadius="8"
               Padding="12,8" Margin="0,6,0,0">

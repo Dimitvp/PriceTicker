@@ -73,6 +73,9 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
 
     public IReadOnlyList<QuoteItemViewModel> Items { get; }
 
+    /// <summary>At least one row has a position, so the Invested / Value / Gain headings are shown.</summary>
+    public bool ShowsPositions => Items.Any(item => item.HasPosition);
+
     /// <summary>The rows as shown: the configured groups in order, then any ungrouped rows.</summary>
     public IReadOnlyList<QuoteGroupViewModel> Groups { get; }
 
