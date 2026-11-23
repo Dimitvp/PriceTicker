@@ -29,6 +29,7 @@ internal static class CompositionRoot
         services.TryAddSingleton(TimeProvider.System);
 
         services.AddPriceTickerQuotes(configuration);
+        services.AddPriceTickerBullion(configuration);
 
         services.AddOptions<TickerOptions>()
             .Bind(configuration.GetSection(TickerOptions.SectionName))
@@ -36,6 +37,12 @@ internal static class CompositionRoot
         services.AddSingleton<IValidateOptions<TickerOptions>, TickerOptionsValidator>();
 
         services.AddSingleton(CreateAutoStart);
+        services.AddOptions<GoldBarOptions>()
+            .Bind(configuration.GetSection(GoldBarOptions.SectionName))
+            .Validate(options => options.IsValid, "GoldBar needs a Name, PurchasePrice > 0 and at least one positive ProfitTargetsPercent.")
+            .ValidateOnStart();
+
+        services.AddSingleton<GoldBarViewModel>();
         services.AddSingleton<TickerViewModel>();
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions
@@ -70,11 +77,13 @@ internal static class CompositionRoot
             : new UnsupportedAutoStart();
     }
 
-    // Later sources override earlier ones: secrets and environment variables beat appsettings.json.
+    // Later sources override earlier ones: local file, secrets and environment variables beat appsettings.json.
     private static IConfiguration BuildConfiguration() =>
         new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+            // Personal data (holdings, alert levels, the gold bar): kept out of the public repository.
+            .AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false)
             .AddUserSecrets<App>(optional: true)
             .AddEnvironmentVariables(EnvironmentVariablePrefix)
             .Build();

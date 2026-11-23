@@ -41,6 +41,14 @@ public sealed class TickerOptionsValidator : IValidateOptions<TickerOptions>
             .Where(group => group.Count() > 1)
             .Select(group => $"Ticker:Instruments has duplicate Id '{group.Key}'."));
 
+        var instrumentIds = options.Instruments.Select(instrument => instrument.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        failures.AddRange(options.Holdings
+            .Where(holding => !instrumentIds.Contains(holding.Key))
+            .Select(holding => $"Ticker:Holdings:{holding.Key} does not match any instrument Id."));
+        failures.AddRange(options.Holdings
+            .Where(holding => holding.Value.PurchasePrice <= 0m)
+            .Select(holding => $"Ticker:Holdings:{holding.Key}:PurchasePrice must be greater than zero."));
+
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);

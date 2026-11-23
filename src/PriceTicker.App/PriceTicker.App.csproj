@@ -30,6 +30,8 @@
 
   <ItemGroup>
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Personal, git-ignored; copied when present so dotnet run picks it up. -->
+    <None Update="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest" />
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 

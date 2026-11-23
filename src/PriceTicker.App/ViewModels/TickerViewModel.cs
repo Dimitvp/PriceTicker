@@ -37,6 +37,7 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
     public TickerViewModel(
         IQuoteService quoteService,
         IPriceHistoryService historyService,
+        GoldBarViewModel goldBar,
         IOptions<TickerOptions> options,
         TimeProvider timeProvider,
         IAutoStart autoStart,
@@ -44,6 +45,7 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
     {
         ArgumentNullException.ThrowIfNull(quoteService);
         ArgumentNullException.ThrowIfNull(historyService);
+        ArgumentNullException.ThrowIfNull(goldBar);
         ArgumentNullException.ThrowIfNull(autoStart);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -51,6 +53,7 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
 
         _quoteService = quoteService;
         _historyService = historyService;
+        GoldBar = goldBar;
         _timeProvider = timeProvider;
         _autoStart = autoStart;
         _logger = logger;
@@ -62,11 +65,15 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
         _refreshInterval = settings.RefreshInterval;
         _instruments = [.. settings.Instruments.Select(instrument => instrument.ToInstrument())];
 
-        Items = [.. _instruments.Select(instrument => new QuoteItemViewModel(instrument))];
+        Items = [.. _instruments.Select(instrument =>
+            new QuoteItemViewModel(instrument, settings.Holdings.TryGetValue(instrument.Id, out var holding) ? holding.ToHolding() : null))];
         _itemsById = Items.ToDictionary(item => item.InstrumentId, StringComparer.Ordinal);
     }
 
     public IReadOnlyList<QuoteItemViewModel> Items { get; }
+
+    /// <summary>The physical gold bar panel (hidden when no bar is configured).</summary>
+    public GoldBarViewModel GoldBar { get; }
 
     public static IReadOnlyList<ChartRangeOption> Ranges { get; } =
     [
@@ -142,6 +149,8 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
             var historyTask = AreChartsDue(range)
                 ? _historyService.GetHistoryAsync(_instruments, range, cancellationToken)
                 : null;
+            // Dealer pages are slower than the price APIs: started now, awaited last, so they never hold back prices.
+            var goldBarTask = GoldBar.RefreshAsync(cancellationToken);
             await Task.WhenAll(historyTask is null ? [quotesTask] : [quotesTask, historyTask]);
 
             var quotes = await quotesTask;
@@ -159,6 +168,8 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
             {
                 LastUpdated = _timeProvider.GetLocalNow();
             }
+
+            await goldBarTask;
         }
         finally
         {

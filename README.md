@@ -10,6 +10,12 @@ gold and Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs o
 - Green / red by direction; hover a name or price to see when the price is from, or a chart to see
   why it is missing.
 - If a refresh fails, the last price stays on screen, dimmed, with the reason in the tooltip.
+- Optional **holdings**: under each name, the purchase price and the gain since; the row turns
+  **yellow** once the review alert (e.g. −20%) is reached and **red** at a sell alert (exit at −40%
+  or take-profit at +50%). Hover the name to see the alert levels.
+- Optional **gold bar panel**: a physical bar's buy and buyback prices at Tavex and igold (read from
+  their public product pages), what was paid, and the buyback prices that give the profit targets.
+  A buyback price that reaches a target turns green.
 - Lives in the notification area (system tray), not the taskbar. Left-click the tray icon to
   show or hide the widget; right-click it for **Show / hide**, **Refresh now**, **Always on top**,
   **Start with Windows** and **Exit**. The widget's own right-click menu offers the same plus **Hide to tray**.
@@ -62,6 +68,28 @@ Without a key the ETFs and gold still work; Bitcoin shows "API key not set."
 `Symbol` is in the provider's notation. For Yahoo, find it by searching the ISIN on
 finance.yahoo.com and pick the listing on your exchange (`.DE` Xetra, `.MI` Borsa Italiana,
 `.PA` Euronext Paris). An invalid configuration stops the app at startup with a clear message.
+
+## Personal data: holdings and the gold bar
+
+Purchase prices, alert levels and the gold bar are personal, so they live in
+`src/PriceTicker.App/appsettings.Local.json`, which is git-ignored and copied next to the exe on
+build. Start from `appsettings.Local.example.json`:
+
+```jsonc
+{
+  "Ticker": {
+    "Holdings": {
+      // Keyed by instrument Id. Prices exclude commissions; copy the alert levels from IBKR.
+      "smh": { "PurchasePrice": 100.00, "ReviewAtOrBelow": 80.00, "SellAtOrBelow": 60.00, "SellAtOrAbove": 150.00 }
+    }
+  },
+  "GoldBar": { "Name": "Gold bar · Valcambi 10 g", "PurchasePrice": 1000.00, "ProfitTargetsPercent": [5, 7] }
+}
+```
+
+Alert levels are copied, not synced: when you change an alert in IBKR, update this file. Without a
+`GoldBar` section the panel is hidden. The dealer pages are not an API; if a site is redesigned the
+row says "Prices not found on page." instead of showing a wrong number.
 
 ## Architecture
 

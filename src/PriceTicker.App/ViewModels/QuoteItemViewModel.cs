@@ -1,6 +1,7 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PriceTicker.Core.History;
+using PriceTicker.Core.Holdings;
 using PriceTicker.Core.Instruments;
 using PriceTicker.Core.Quotes;
 
@@ -16,12 +17,15 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     private string _currency = string.Empty;
     private decimal? _dailyChangePercent;
     private PriceHistory? _history;
+    private readonly Holding? _holding;
 
-    public QuoteItemViewModel(Instrument instrument)
+    public QuoteItemViewModel(Instrument instrument, Holding? holding = null)
     {
         ArgumentNullException.ThrowIfNull(instrument);
         InstrumentId = instrument.Id;
         DisplayName = instrument.DisplayName;
+        _holding = holding;
+        AlertDescription = holding is null ? null : DescribeAlerts(holding.Alerts, AlertLevel.None);
     }
 
     public string InstrumentId { get; }
@@ -31,6 +35,22 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShownPriceText))]
     private string _priceText = "—";
+
+    /// <summary>"Bought 100.00 · +5.00 %" under the name; empty for instruments not held.</summary>
+    [ObservableProperty]
+    private string _holdingText = string.Empty;
+
+    /// <summary>The review alert (−20%) has been reached: the row turns yellow.</summary>
+    [ObservableProperty]
+    private bool _isReviewAlert;
+
+    /// <summary>A sell alert (−40% or +50%) has been reached: the row turns red.</summary>
+    [ObservableProperty]
+    private bool _isSellAlert;
+
+    /// <summary>Tooltip: the alert levels and which one, if any, has been reached.</summary>
+    [ObservableProperty]
+    private string? _alertDescription;
 
     /// <summary>Change over the selected range, or the daily change until a chart has loaded.</summary>
     [ObservableProperty]
@@ -147,11 +167,57 @@ public sealed partial class QuoteItemViewModel : ObservableObject
 
         _lastPrice = quote.Price;
         UpdateWidestPrice();
+        ShowHolding(quote.Price);
         _dailyChangePercent = quote.ChangePercent;
         ShowChange();
 
         IsStale = false;
-        Detail = $"As of {quote.AsOf.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.CurrentCulture)}";
+        Detail = $"As of {Formats.Timestamp(quote.AsOf)}";
+    }
+
+    private void ShowHolding(decimal price)
+    {
+        if (_holding is null)
+        {
+            return;
+        }
+
+        var culture = CultureInfo.CurrentCulture;
+        var gain = _holding.GainPercent(price);
+        HoldingText = $"Bought {Formats.ExactPrice(_holding.PurchasePrice)} · {Formats.Signed(gain)} %";
+
+        var level = _holding.Alerts.Evaluate(price);
+        IsReviewAlert = level == AlertLevel.Review;
+        IsSellAlert = level == AlertLevel.Sell;
+        AlertDescription = DescribeAlerts(_holding.Alerts, level);
+    }
+
+    private static string DescribeAlerts(PriceAlerts alerts, AlertLevel level)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        string Describe(string label, string comparison, decimal? value) =>
+            value is { } price ? $"{label} {comparison} {Formats.ExactPrice(price)}" : string.Empty;
+
+        var levels = string.Join(" · ", new[]
+        {
+            Describe("Review", "≤", alerts.ReviewAtOrBelow),
+            Describe("Exit", "≤", alerts.SellAtOrBelow),
+            Describe("Sell half", "≥", alerts.SellAtOrAbove),
+        }.Where(text => text.Length > 0));
+
+        var status = level switch
+        {
+            AlertLevel.Review => "Review alert reached: check whether the thesis still holds.",
+            AlertLevel.Sell => "Sell alert reached.",
+            _ => null,
+        };
+
+        if (levels.Length == 0)
+        {
+            return status ?? "No alerts set.";
+        }
+
+        return status is null ? $"Alerts: {levels}" : $"{status}{Environment.NewLine}Alerts: {levels}";
     }
 
     private void UpdateWidestPrice()
@@ -162,7 +228,7 @@ public sealed partial class QuoteItemViewModel : ObservableObject
 
     private string FormatPrice(decimal price)
     {
-        var text = price.ToString("N2", CultureInfo.CurrentCulture);
+        var text = Formats.Price(price);
         return string.IsNullOrEmpty(_currency) ? text : $"{text} {_currency}";
     }
 
@@ -178,11 +244,11 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         var change = hasChart ? _history!.ChangePercentTo(_lastPrice!.Value) : _dailyChangePercent;
 
         ChangeDescription = change is null ? null
-            : hasChart ? $"Change since {_history!.Points[0].Time.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.CurrentCulture)}"
+            : hasChart ? $"Change since {Formats.Timestamp(_history!.Points[0].Time)}"
             : "Daily change (chart unavailable)";
 
         ChangeText = change is { } percent
-            ? $"{percent.ToString("+0.00;-0.00;0.00", CultureInfo.CurrentCulture)} %"
+            ? $"{Formats.Signed(percent)} %"
             : string.Empty;
         IsUp = change > 0m;
         IsDown = change < 0m;

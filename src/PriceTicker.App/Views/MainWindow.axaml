@@ -51,6 +51,38 @@
     <Style Selector="Grid.stale">
       <Setter Property="Opacity" Value="0.5" />
     </Style>
+
+    <!-- Rows of held instruments: yellow once the review alert is reached, red at a sell alert. -->
+    <Style Selector="Border.row">
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderThickness" Value="3,0,0,0" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.row.review">
+      <Setter Property="Background" Value="#33EAB308" />
+      <Setter Property="BorderBrush" Value="#EAB308" />
+    </Style>
+    <Style Selector="Border.row.sell">
+      <Setter Property="Background" Value="#40EF4444" />
+      <Setter Property="BorderBrush" Value="#EF4444" />
+    </Style>
+    <Style Selector="TextBlock.holding">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="#9A9A9A" />
+    </Style>
+
+    <!-- Gold bar panel. -->
+    <Style Selector="TextBlock.muted">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="#9A9A9A" />
+    </Style>
+    <Style Selector="TextBlock.buyback.reached">
+      <Setter Property="Foreground" Value="#4ADE80" />
+    </Style>
+    <Style Selector="Grid.dealer.stale">
+      <Setter Property="Opacity" Value="0.5" />
+    </Style>
     <Style Selector="TextBlock.footer">
       <Setter Property="FontSize" Value="11" />
       <Setter Property="Foreground" Value="#8A8A8A" />
@@ -124,15 +156,21 @@
       <ItemsControl ItemsSource="{Binding Items}" Grid.IsSharedSizeScope="True">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:QuoteItemViewModel">
-            <Grid Margin="0,4" Classes.stale="{Binding IsStale}">
+            <Border Classes="row" Margin="0,1"
+                    Classes.review="{Binding IsReviewAlert}" Classes.sell="{Binding IsSellAlert}">
+            <Grid Classes.stale="{Binding IsStale}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
                 <ColumnDefinition Width="180" />
                 <ColumnDefinition Width="Auto" SharedSizeGroup="Price" />
                 <ColumnDefinition Width="Auto" SharedSizeGroup="Change" />
               </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Margin="0,0,18,0"
-                         ToolTip.Tip="{Binding Detail}" />
+              <StackPanel Grid.Column="0" Margin="0,0,18,0" VerticalAlignment="Center"
+                          Background="Transparent" ToolTip.Tip="{Binding AlertDescription}">
+                <TextBlock Text="{Binding DisplayName}" />
+                <TextBlock Classes="holding" Text="{Binding HoldingText}"
+                           IsVisible="{Binding HoldingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </StackPanel>
               <controls:Sparkline Grid.Column="1" Height="36"
                                   Values="{Binding ChartValues}"
                                   HoveredIndex="{Binding HoveredIndex, Mode=OneWayToSource}"
@@ -149,9 +187,57 @@
                          Classes.hovering="{Binding IsHovering}"
                          Text="{Binding ShownChangeText}" ToolTip.Tip="{Binding ChangeDescription}" />
             </Grid>
+            </Border>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
+
+      <Border IsVisible="{Binding GoldBar.IsVisible}" Background="#14FFFFFF" CornerRadius="8"
+              Padding="12,8" Margin="0,6,0,0">
+        <StackPanel Spacing="6" DataContext="{Binding GoldBar}" x:DataType="vm:GoldBarViewModel"
+                    Grid.IsSharedSizeScope="True">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="{Binding PurchaseText}" Margin="16,0,0,0" />
+          </Grid>
+
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" SharedSizeGroup="Dealer" />
+              <ColumnDefinition Width="Auto" SharedSizeGroup="Buy" />
+              <ColumnDefinition Width="Auto" SharedSizeGroup="Buyback" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="1" Classes="muted" Text="You buy" HorizontalAlignment="Right" Margin="24,0,0,0" />
+            <TextBlock Grid.Column="2" Classes="muted" Text="You sell" HorizontalAlignment="Right" Margin="24,0,0,0" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Dealers}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:DealerRowViewModel">
+                <Grid Classes="dealer" Classes.stale="{Binding IsStale}" Margin="0,1"
+                      Background="Transparent" ToolTip.Tip="{Binding Detail}">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" SharedSizeGroup="Dealer" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="Buy" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="Buyback" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Dealer}" />
+                  <TextBlock Grid.Column="1" Text="{Binding BuyText}" HorizontalAlignment="Right" Margin="24,0,0,0" />
+                  <TextBlock Grid.Column="2" Classes="price buyback" Classes.reached="{Binding IsTargetReached}"
+                             Text="{Binding BuybackText}" HorizontalAlignment="Right" Margin="24,0,0,0" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <ItemsControl ItemsSource="{Binding Targets}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <TextBlock Classes="muted" Text="{Binding}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
 
       <TextBlock Classes="footer" Text="{Binding LastUpdatedText}" HorizontalAlignment="Right" />
     </StackPanel>

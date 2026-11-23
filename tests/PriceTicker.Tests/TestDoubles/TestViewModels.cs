@@ -10,6 +10,10 @@ namespace PriceTicker.Tests.TestDoubles;
 
 internal static class TestViewModels
 {
+    /// <summary>A gold bar panel with no bar configured: hidden, and never calls the dealers.</summary>
+    public static GoldBarViewModel NoGoldBar() =>
+        new(new FakeBullionService([]), Options.Create(new GoldBarOptions()));
+
     public static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
 
     public static TickerViewModel Create(
@@ -17,6 +21,7 @@ internal static class TestViewModels
         TimeProvider clock,
         IAutoStart? autoStart = null,
         IPriceHistoryService? history = null,
+        GoldBarViewModel? goldBar = null,
         params string[] ids)
     {
         var options = new TickerOptions
@@ -34,6 +39,7 @@ internal static class TestViewModels
         return new TickerViewModel(
             quotes,
             history ?? FakeHistoryService.Returning(5m, 6m),
+            goldBar ?? NoGoldBar(),
             Options.Create(options),
             clock,
             autoStart ?? new FakeAutoStart(),

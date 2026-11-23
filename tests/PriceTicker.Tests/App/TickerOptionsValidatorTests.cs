@@ -58,6 +58,24 @@ public sealed class TickerOptionsValidatorTests
         AssertFailsWith(result, "Instruments:0");
     }
 
+    [Fact]
+    public void Validate_WithHoldingForUnknownInstrument_Fails()
+    {
+        var options = Options(TimeSpan.FromMinutes(5), Instrument("a"));
+        options.Holdings["typo"] = new HoldingOptions { PurchasePrice = 1m };
+
+        AssertFailsWith(_validator.Validate(null, options), "Ticker:Holdings:typo does not match");
+    }
+
+    [Fact]
+    public void Validate_WithNonPositivePurchasePrice_Fails()
+    {
+        var options = Options(TimeSpan.FromMinutes(5), Instrument("a"));
+        options.Holdings["a"] = new HoldingOptions { PurchasePrice = 0m };
+
+        AssertFailsWith(_validator.Validate(null, options), "PurchasePrice must be greater than zero");
+    }
+
     private static void AssertFailsWith(ValidateOptionsResult result, string expectedFragment)
     {
         Assert.True(result.Failed);
