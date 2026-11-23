@@ -78,6 +78,66 @@ public sealed class HoldingAndGoldBarTests
     }
 
     [Fact]
+    public void Row_AlertsCarryATextBadge_NotOnlyAColour()
+    {
+        Assert.Equal("REVIEW", RowAt(Smh, price: 70m).AlertBadge);
+        Assert.Equal("SELL", RowAt(Smh, price: 60m).AlertBadge);
+        Assert.Equal(string.Empty, RowAt(Smh, price: 100m).AlertBadge);
+    }
+
+    [Theory]
+    [InlineData(MarketState.Open, "XETRA · open", true)]
+    [InlineData(MarketState.Closed, "XETRA · closed", false)]
+    [InlineData(MarketState.Unknown, "XETRA", false)]
+    public void Row_ShowsExchangeAndState(MarketState state, string expected, bool expectedOpen)
+    {
+        var item = RowWithMarket(new Market("XETRA", state));
+
+        Assert.Equal(expected, item.MarketText);
+        Assert.Equal(expectedOpen, item.IsMarketOpen);
+    }
+
+    [Fact]
+    public void Row_BeforeOpenLaterToday_ShowsOnlyTheTime()
+    {
+        var opensAt = new DateTimeOffset(2026, 11, 23, 8, 0, 0, TimeSpan.Zero);
+        var clock = ClockAt(opensAt.ToLocalTime().Date.AddHours(1), opensAt.ToLocalTime().Offset);
+
+        var item = RowWithMarket(new Market("XETRA", MarketState.BeforeOpen, opensAt), clock);
+
+        Assert.Equal($"XETRA · opens {opensAt.ToLocalTime():HH:mm}", item.MarketText);
+    }
+
+    [Fact]
+    public void Row_BeforeOpenOnAnotherDay_ShowsTheDayToo()
+    {
+        var mondayOpen = new DateTimeOffset(2026, 11, 23, 8, 0, 0, TimeSpan.Zero);
+        var clock = ClockAt(mondayOpen.ToLocalTime().Date.AddDays(-2).AddHours(12), mondayOpen.ToLocalTime().Offset);
+
+        var item = RowWithMarket(new Market("XETRA", MarketState.BeforeOpen, mondayOpen), clock);
+
+        var expected = mondayOpen.ToLocalTime().ToString("ddd HH:mm", CultureInfo.InvariantCulture);
+        Assert.Equal($"XETRA · opens {expected}", item.MarketText);
+    }
+
+    [Fact]
+    public void Row_WhenRefreshFails_KeepsOnlyTheExchange()
+    {
+        var item = RowWithMarket(new Market("XETRA", MarketState.Open));
+
+        item.MarkUnavailable("Refresh failed.");
+
+        Assert.Equal("XETRA", item.MarketText);
+        Assert.False(item.IsMarketOpen);
+    }
+
+    [Fact]
+    public void Row_WithoutMarketInfo_ShowsNoMarketLine()
+    {
+        Assert.Equal(string.Empty, RowWithMarket(null).MarketText);
+    }
+
+    [Fact]
     public void Row_WithoutHolding_ShowsNothingExtra()
     {
         var instrument = TestInstruments.Create("btc");
@@ -185,6 +245,17 @@ public sealed class HoldingAndGoldBarTests
         var options = new GoldBarOptions { Name = name, PurchasePrice = (decimal)price, ProfitTargetsPercent = [.. targets.Select(t => (decimal)t)] };
 
         Assert.Equal(expectedValid, options.IsValid);
+    }
+
+    private static FakeTimeProvider ClockAt(DateTime localTime, TimeSpan offset) =>
+        new(new DateTimeOffset(localTime, offset));
+
+    private static QuoteItemViewModel RowWithMarket(Market? market, TimeProvider? clock = null)
+    {
+        var instrument = TestInstruments.Create("sxr8");
+        var item = new QuoteItemViewModel(instrument, clock: clock ?? new FakeTimeProvider());
+        item.Apply(new QuoteAvailable(new Quote(instrument, 700m, null, "EUR", DateTimeOffset.UnixEpoch, market)));
+        return item;
     }
 
     private static QuoteItemViewModel RowAt(Holding holding, decimal price)

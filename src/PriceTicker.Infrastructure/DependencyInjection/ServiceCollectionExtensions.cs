@@ -35,6 +35,8 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        services.TryAddSingleton(TimeProvider.System);
+
         services.AddOptions<YahooOptions>()
             .Bind(configuration.GetSection(YahooOptions.SectionName))
             .ValidateDataAnnotations()

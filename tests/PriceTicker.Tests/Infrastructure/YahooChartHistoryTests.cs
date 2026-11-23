@@ -99,5 +99,5 @@ public sealed class YahooChartHistoryTests
     }
 
     private static YahooChartProvider CreateProvider(StubHttpMessageHandler handler) =>
-        new(new StubHttpClientFactory(handler, new Uri("https://yahoo.test/")), NullLogger<YahooChartProvider>.Instance);
+        new(new StubHttpClientFactory(handler, new Uri("https://yahoo.test/")), new Microsoft.Extensions.Time.Testing.FakeTimeProvider(), NullLogger<YahooChartProvider>.Instance);
 }

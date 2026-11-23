@@ -7,7 +7,7 @@ namespace PriceTicker.Infrastructure.Yahoo;
 /// <summary>Maps one <c>/v8/finance/chart</c> result to a quote or a price history.</summary>
 internal static class YahooChartMapper
 {
-    public static QuoteResult ToQuote(Instrument instrument, YahooChartResult? chart)
+    public static QuoteResult ToQuote(Instrument instrument, YahooChartResult? chart, DateTimeOffset now)
     {
         var meta = chart?.Meta;
         if (meta?.RegularMarketPrice is not { } price)
@@ -30,9 +30,27 @@ internal static class YahooChartMapper
             price,
             meta.ChartPreviousClose ?? meta.PreviousClose,
             meta.Currency ?? string.Empty,
-            asOf);
+            asOf,
+            ToMarket(meta, now));
 
         return new QuoteAvailable(quote);
+    }
+
+    // currentTradingPeriod.regular is today's (or the next) regular session.
+    private static Market? ToMarket(YahooChartMeta meta, DateTimeOffset now)
+    {
+        var exchange = meta.FullExchangeName ?? string.Empty;
+        var session = meta.CurrentTradingPeriod?.Regular;
+
+        if (session?.Start is { } startSeconds
+            && session.End is { } endSeconds
+            && UnixTime.TryFromSeconds(startSeconds, out var start)
+            && UnixTime.TryFromSeconds(endSeconds, out var end))
+        {
+            return Market.ForSession(exchange, start, end, now);
+        }
+
+        return exchange.Length == 0 ? null : new Market(exchange, MarketState.Unknown);
     }
 
     public static HistoryResult ToHistory(Instrument instrument, ChartRange range, YahooChartResult? chart)

@@ -66,7 +66,7 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
         _instruments = [.. settings.Instruments.Select(instrument => instrument.ToInstrument())];
 
         Items = [.. _instruments.Select(instrument =>
-            new QuoteItemViewModel(instrument, settings.Holdings.TryGetValue(instrument.Id, out var holding) ? holding.ToHolding() : null))];
+            new QuoteItemViewModel(instrument, settings.Holdings.TryGetValue(instrument.Id, out var holding) ? holding.ToHolding() : null, timeProvider))];
         _itemsById = Items.ToDictionary(item => item.InstrumentId, StringComparer.Ordinal);
     }
 

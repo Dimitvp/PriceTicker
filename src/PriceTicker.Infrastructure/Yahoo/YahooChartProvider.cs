@@ -23,14 +23,17 @@ public sealed partial class YahooChartProvider : IQuoteProvider, IPriceHistoryPr
     private const string QuoteQuery = "range=1d&interval=1d";
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<YahooChartProvider> _logger;
 
-    public YahooChartProvider(IHttpClientFactory httpClientFactory, ILogger<YahooChartProvider> logger)
+    public YahooChartProvider(IHttpClientFactory httpClientFactory, TimeProvider timeProvider, ILogger<YahooChartProvider> logger)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(logger);
 
         _httpClientFactory = httpClientFactory;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -38,13 +41,17 @@ public sealed partial class YahooChartProvider : IQuoteProvider, IPriceHistoryPr
 
     public Task<IReadOnlyList<QuoteResult>> GetQuotesAsync(
         IReadOnlyList<Instrument> instruments,
-        CancellationToken cancellationToken) =>
-        FetchEachAsync<QuoteResult>(
+        CancellationToken cancellationToken)
+    {
+        // One "now" for the whole batch, so rows from the same exchange agree on open or closed.
+        var now = _timeProvider.GetUtcNow();
+        return FetchEachAsync<QuoteResult>(
             instruments,
             QuoteQuery,
-            YahooChartMapper.ToQuote,
+            (instrument, chart) => YahooChartMapper.ToQuote(instrument, chart, now),
             (instrument, reason) => new QuoteUnavailable(instrument, reason),
             cancellationToken);
+    }
 
     public Task<IReadOnlyList<HistoryResult>> GetHistoryAsync(
         IReadOnlyList<Instrument> instruments,

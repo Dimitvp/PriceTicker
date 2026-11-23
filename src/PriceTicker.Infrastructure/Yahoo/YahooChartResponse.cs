@@ -20,7 +20,17 @@ internal sealed record YahooChartMeta(
     [property: JsonPropertyName("regularMarketPrice")] decimal? RegularMarketPrice,
     [property: JsonPropertyName("chartPreviousClose")] decimal? ChartPreviousClose,
     [property: JsonPropertyName("previousClose")] decimal? PreviousClose,
-    [property: JsonPropertyName("regularMarketTime")] long? RegularMarketTime);
+    [property: JsonPropertyName("regularMarketTime")] long? RegularMarketTime,
+    [property: JsonPropertyName("fullExchangeName")] string? FullExchangeName,
+    [property: JsonPropertyName("currentTradingPeriod")] YahooTradingPeriods? CurrentTradingPeriod);
+
+internal sealed record YahooTradingPeriods(
+    [property: JsonPropertyName("regular")] YahooTradingPeriod? Regular);
+
+// Unix seconds.
+internal sealed record YahooTradingPeriod(
+    [property: JsonPropertyName("start")] long? Start,
+    [property: JsonPropertyName("end")] long? End);
 
 internal sealed record YahooIndicators(
     [property: JsonPropertyName("quote")] IReadOnlyList<YahooQuoteSeries>? Quote);

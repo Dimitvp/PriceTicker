@@ -5,7 +5,13 @@ namespace PriceTicker.Core.Quotes;
 /// <summary>A price observed for an instrument at a point in time.</summary>
 public sealed record Quote
 {
-    public Quote(Instrument instrument, decimal price, decimal? previousClose, string currency, DateTimeOffset asOf)
+    public Quote(
+        Instrument instrument,
+        decimal price,
+        decimal? previousClose,
+        string currency,
+        DateTimeOffset asOf,
+        Market? market = null)
     {
         ArgumentNullException.ThrowIfNull(instrument);
         ArgumentOutOfRangeException.ThrowIfNegative(price);
@@ -16,6 +22,7 @@ public sealed record Quote
         PreviousClose = previousClose;
         Currency = currency;
         AsOf = asOf;
+        Market = market;
     }
 
     public Instrument Instrument { get; }
@@ -29,6 +36,9 @@ public sealed record Quote
     public string Currency { get; }
 
     public DateTimeOffset AsOf { get; }
+
+    /// <summary>The exchange and whether it was trading when fetched; null when the provider does not say.</summary>
+    public Market? Market { get; }
 
     /// <summary>Change against the previous close in percent, or <c>null</c> when it cannot be computed.</summary>
     public decimal? ChangePercent =>

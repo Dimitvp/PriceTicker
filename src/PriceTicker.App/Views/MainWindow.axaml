@@ -15,6 +15,20 @@
         Icon="/Assets/priceticker.ico"
         WindowStartupLocation="Manual">
 
+  <!--
+    Colour-blind-safe palette (Okabe–Ito). Up/down are blue/orange instead of green/red; the review
+    alert is a clear yellow and the sell alert a reddish purple, which stay distinct for red–green
+    colour blindness. Alerts also carry a text badge, so nothing depends on colour alone.
+  -->
+  <Window.Resources>
+    <SolidColorBrush x:Key="UpBrush" Color="#56B4E9" />
+    <SolidColorBrush x:Key="DownBrush" Color="#E69F00" />
+    <SolidColorBrush x:Key="ReviewBrush" Color="#F0E442" />
+    <SolidColorBrush x:Key="SellBrush" Color="#CC79A7" />
+    <SolidColorBrush x:Key="ReviewTintBrush" Color="#F0E442" Opacity="0.18" />
+    <SolidColorBrush x:Key="SellTintBrush" Color="#CC79A7" Opacity="0.24" />
+  </Window.Resources>
+
   <Window.Styles>
     <Style Selector="TextBlock">
       <Setter Property="Foreground" Value="#F2F2F2" />
@@ -30,10 +44,10 @@
       <Setter Property="Foreground" Value="#A3A3A3" />
     </Style>
     <Style Selector="TextBlock.change.up">
-      <Setter Property="Foreground" Value="#4ADE80" />
+      <Setter Property="Foreground" Value="{StaticResource UpBrush}" />
     </Style>
     <Style Selector="TextBlock.change.down">
-      <Setter Property="Foreground" Value="#F87171" />
+      <Setter Property="Foreground" Value="{StaticResource DownBrush}" />
     </Style>
     <!-- While a chart is hovered the change column shows that point's date, in neutral grey. -->
     <Style Selector="TextBlock.change.hovering">
@@ -43,29 +57,54 @@
       <Setter Property="Stroke" Value="#A3A3A3" />
     </Style>
     <Style Selector="controls|Sparkline.up">
-      <Setter Property="Stroke" Value="#4ADE80" />
+      <Setter Property="Stroke" Value="{StaticResource UpBrush}" />
     </Style>
     <Style Selector="controls|Sparkline.down">
-      <Setter Property="Stroke" Value="#F87171" />
+      <Setter Property="Stroke" Value="{StaticResource DownBrush}" />
     </Style>
     <Style Selector="Grid.stale">
       <Setter Property="Opacity" Value="0.5" />
     </Style>
 
-    <!-- Rows of held instruments: yellow once the review alert is reached, red at a sell alert. -->
+    <!-- Rows of held instruments: yellow at the review alert, reddish purple at a sell alert. -->
     <Style Selector="Border.row">
       <Setter Property="Padding" Value="8,3" />
       <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="BorderThickness" Value="3,0,0,0" />
+      <Setter Property="BorderThickness" Value="4,0,0,0" />
       <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
     <Style Selector="Border.row.review">
-      <Setter Property="Background" Value="#33EAB308" />
-      <Setter Property="BorderBrush" Value="#EAB308" />
+      <Setter Property="Background" Value="{StaticResource ReviewTintBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource ReviewBrush}" />
     </Style>
     <Style Selector="Border.row.sell">
-      <Setter Property="Background" Value="#40EF4444" />
-      <Setter Property="BorderBrush" Value="#EF4444" />
+      <Setter Property="Background" Value="{StaticResource SellTintBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource SellBrush}" />
+    </Style>
+    <Style Selector="Border.badge">
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="5,0" />
+      <Setter Property="Margin" Value="8,0,0,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.badge.review">
+      <Setter Property="Background" Value="{StaticResource ReviewBrush}" />
+    </Style>
+    <Style Selector="Border.badge.sell">
+      <Setter Property="Background" Value="{StaticResource SellBrush}" />
+    </Style>
+    <Style Selector="Border.badge TextBlock">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="#111111" />
+    </Style>
+    <Style Selector="TextBlock.market">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="#8A8A8A" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="TextBlock.market.open">
+      <Setter Property="Foreground" Value="{StaticResource UpBrush}" />
     </Style>
     <Style Selector="TextBlock.holding">
       <Setter Property="FontSize" Value="11" />
@@ -78,7 +117,7 @@
       <Setter Property="Foreground" Value="#9A9A9A" />
     </Style>
     <Style Selector="TextBlock.buyback.reached">
-      <Setter Property="Foreground" Value="#4ADE80" />
+      <Setter Property="Foreground" Value="{StaticResource UpBrush}" />
     </Style>
     <Style Selector="Grid.dealer.stale">
       <Setter Property="Opacity" Value="0.5" />
@@ -167,7 +206,13 @@
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0" Margin="0,0,18,0" VerticalAlignment="Center"
                           Background="Transparent" ToolTip.Tip="{Binding AlertDescription}">
-                <TextBlock Text="{Binding DisplayName}" />
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="{Binding DisplayName}" />
+                  <Border Classes="badge" Classes.review="{Binding IsReviewAlert}" Classes.sell="{Binding IsSellAlert}"
+                          IsVisible="{Binding AlertBadge, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding AlertBadge}" />
+                  </Border>
+                </StackPanel>
                 <TextBlock Classes="holding" Text="{Binding HoldingText}"
                            IsVisible="{Binding HoldingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               </StackPanel>
@@ -176,11 +221,15 @@
                                   HoveredIndex="{Binding HoveredIndex, Mode=OneWayToSource}"
                                   Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
                                   ToolTip.Tip="{Binding ChartStatus}" />
-              <!-- Invisible: reserves the widest price so hovering never resizes the window. -->
-              <TextBlock Grid.Column="2" Classes="price" Margin="18,0,0,0" Opacity="0" IsHitTestVisible="False"
-                         Text="{Binding WidestPriceText}" />
-              <TextBlock Grid.Column="2" Classes="price" Margin="18,0,0,0"
-                         Text="{Binding ShownPriceText}" ToolTip.Tip="{Binding Detail}" />
+              <StackPanel Grid.Column="2" Margin="18,0,0,0" VerticalAlignment="Center">
+                <Panel>
+                  <!-- Invisible: reserves the widest price so hovering never resizes the window. -->
+                  <TextBlock Classes="price" Opacity="0" IsHitTestVisible="False" Text="{Binding WidestPriceText}" />
+                  <TextBlock Classes="price" Text="{Binding ShownPriceText}" ToolTip.Tip="{Binding Detail}" />
+                </Panel>
+                <TextBlock Classes="market" Classes.open="{Binding IsMarketOpen}" Text="{Binding MarketText}"
+                           IsVisible="{Binding MarketText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </StackPanel>
               <!-- MinWidth fits a hovered date ("22.11.2026"), so hovering never resizes the window. -->
               <TextBlock Grid.Column="3" Classes="change" Margin="16,0,0,0" MinWidth="88" TextAlignment="Right"
                          Classes.up="{Binding IsUp}" Classes.down="{Binding IsDown}"
@@ -222,8 +271,12 @@
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="{Binding Dealer}" />
                   <TextBlock Grid.Column="1" Text="{Binding BuyText}" HorizontalAlignment="Right" Margin="24,0,0,0" />
-                  <TextBlock Grid.Column="2" Classes="price buyback" Classes.reached="{Binding IsTargetReached}"
-                             Text="{Binding BuybackText}" HorizontalAlignment="Right" Margin="24,0,0,0" />
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="24,0,0,0">
+                    <TextBlock Classes="price buyback" Classes.reached="{Binding IsTargetReached}"
+                               Text="{Binding BuybackText}" />
+                    <!-- A target reached is also marked with a tick, not only with colour. -->
+                    <TextBlock Classes="buyback reached" Text=" ✓" FontWeight="Bold" IsVisible="{Binding IsTargetReached}" />
+                  </StackPanel>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using PriceTicker.Core.Quotes;
 using PriceTicker.Infrastructure.Yahoo;
 using PriceTicker.Tests.TestDoubles;
@@ -40,6 +41,42 @@ public sealed class YahooChartProviderTests
         Assert.Equal(680.00m, quote.PreviousClose);
         Assert.Equal("EUR", quote.Currency);
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1763740800), quote.AsOf);
+    }
+
+    [Theory]
+    [InlineData(1795415650, MarketState.BeforeOpen)]
+    [InlineData(1795425000, MarketState.Open)]
+    [InlineData(1795460000, MarketState.Closed)]
+    public async Task GetQuotesAsync_ReadsExchangeAndSessionState(long nowUnixSeconds, MarketState expectedState)
+    {
+        // Real meta of SMH.MI on 23.11.2026 (regular session 1795420800–1795451400).
+        const string chart = """
+            { "chart": { "result": [ { "meta": { "currency": "EUR", "regularMarketPrice": 70.34, "regularMarketTime": 1795192737,
+              "fullExchangeName": "Milan", "exchangeName": "MIL",
+              "currentTradingPeriod": { "regular": { "timezone": "CET", "start": 1795420800, "end": 1795451400, "gmtoffset": 3600 } } } } ] } }
+            """;
+        var clock = new FakeTimeProvider(DateTimeOffset.FromUnixTimeSeconds(nowUnixSeconds));
+        var provider = new YahooChartProvider(
+            new StubHttpClientFactory(StubHttpMessageHandler.Json(chart), new Uri("https://yahoo.test/")),
+            clock,
+            NullLogger<YahooChartProvider>.Instance);
+
+        var results = await provider.GetQuotesAsync([TestInstruments.Create("smh", "Yahoo", "SMH.MI")], CancellationToken.None);
+
+        var market = Assert.IsType<QuoteAvailable>(Assert.Single(results)).Quote.Market;
+        Assert.NotNull(market);
+        Assert.Equal("Milan", market.Exchange);
+        Assert.Equal(expectedState, market.State);
+    }
+
+    [Fact]
+    public async Task GetQuotesAsync_WithoutSessionInfo_HasNoMarket()
+    {
+        var provider = CreateProvider(StubHttpMessageHandler.Json(ValidChart));
+
+        var results = await provider.GetQuotesAsync([TestInstruments.Create("a", "Yahoo")], CancellationToken.None);
+
+        Assert.Null(Assert.IsType<QuoteAvailable>(Assert.Single(results)).Quote.Market);
     }
 
     [Fact]
@@ -143,5 +180,5 @@ public sealed class YahooChartProviderTests
     }
 
     private static YahooChartProvider CreateProvider(StubHttpMessageHandler handler) =>
-        new(new StubHttpClientFactory(handler, new Uri("https://yahoo.test/")), NullLogger<YahooChartProvider>.Instance);
+        new(new StubHttpClientFactory(handler, new Uri("https://yahoo.test/")), new FakeTimeProvider(), NullLogger<YahooChartProvider>.Instance);
 }

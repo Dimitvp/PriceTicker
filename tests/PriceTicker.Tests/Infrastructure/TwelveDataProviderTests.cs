@@ -89,6 +89,31 @@ public sealed class TwelveDataProviderTests
     }
 
     [Fact]
+    public async Task GetQuotesAsync_ReadsExchangeAndMarketOpenFlag()
+    {
+        const string quote = """{ "symbol": "BTC/EUR", "exchange": "Binance", "is_market_open": true, "timestamp": 1, "close": "55000" }""";
+        var provider = CreateProvider(StubHttpMessageHandler.Json(quote));
+
+        var results = await provider.GetQuotesAsync([Bitcoin], CancellationToken.None);
+
+        var market = Assert.IsType<QuoteAvailable>(Assert.Single(results)).Quote.Market;
+        Assert.Equal(new Market("Binance", MarketState.Open), market);
+    }
+
+    [Theory]
+    [InlineData("""{ "symbol": "BTC/EUR", "exchange": "Binance", "is_market_open": false, "timestamp": 1, "close": "55000" }""", MarketState.Closed)]
+    [InlineData("""{ "symbol": "BTC/EUR", "exchange": "Binance", "timestamp": 1, "close": "55000" }""", MarketState.Unknown)]
+    public async Task GetQuotesAsync_WithClosedOrMissingFlag_ReadsMarketState(string quote, MarketState expected)
+    {
+        var provider = CreateProvider(StubHttpMessageHandler.Json(quote));
+
+        var results = await provider.GetQuotesAsync([Bitcoin], CancellationToken.None);
+
+        var market = Assert.IsType<QuoteAvailable>(Assert.Single(results)).Quote.Market;
+        Assert.Equal(new Market("Binance", expected), market);
+    }
+
+    [Fact]
     public async Task GetQuotesAsync_WithBatch_ParsesEachSymbolIndependently()
     {
         var provider = CreateProvider(StubHttpMessageHandler.Json(BatchQuotes));

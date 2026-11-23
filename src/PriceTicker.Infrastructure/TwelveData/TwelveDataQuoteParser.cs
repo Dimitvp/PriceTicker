@@ -64,9 +64,21 @@ internal static class TwelveDataQuoteParser
             price,
             previousClose,
             GetCurrency(element, instrument.Symbol),
-            asOf);
+            asOf,
+            GetMarket(element));
 
         return new QuoteAvailable(quote);
+    }
+
+    // "is_market_open" is a snapshot taken by the API; crypto reports true around the clock.
+    private static Market? GetMarket(JsonElement element)
+    {
+        var exchange = TryGetString(element, "exchange") ?? string.Empty;
+        var state = element.TryGetProperty("is_market_open", out var open) && open.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? open.GetBoolean() ? MarketState.Open : MarketState.Closed
+            : MarketState.Unknown;
+
+        return exchange.Length == 0 && state == MarketState.Unknown ? null : new Market(exchange, state);
     }
 
     // Stocks and ETFs report "currency"; crypto pairs may report nothing, so for a pair such as

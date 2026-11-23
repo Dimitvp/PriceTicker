@@ -18,10 +18,13 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     private decimal? _dailyChangePercent;
     private PriceHistory? _history;
     private readonly Holding? _holding;
+    private readonly TimeProvider _clock;
+    private Market? _market;
 
-    public QuoteItemViewModel(Instrument instrument, Holding? holding = null)
+    public QuoteItemViewModel(Instrument instrument, Holding? holding = null, TimeProvider? clock = null)
     {
         ArgumentNullException.ThrowIfNull(instrument);
+        _clock = clock ?? TimeProvider.System;
         InstrumentId = instrument.Id;
         DisplayName = instrument.DisplayName;
         _holding = holding;
@@ -44,9 +47,20 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     [ObservableProperty]
     private bool _isReviewAlert;
 
-    /// <summary>A sell alert (−40% or +50%) has been reached: the row turns red.</summary>
+    /// <summary>A sell alert (−40% or +50%) has been reached: the row is highlighted as urgent.</summary>
     [ObservableProperty]
     private bool _isSellAlert;
+
+    /// <summary>"REVIEW" or "SELL" next to the name, so the alert never depends on colour alone.</summary>
+    [ObservableProperty]
+    private string _alertBadge = string.Empty;
+
+    /// <summary>"XETRA · open", "Milan · opens 10:00", "Paris · closed"; empty when the provider does not say.</summary>
+    [ObservableProperty]
+    private string _marketText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isMarketOpen;
 
     /// <summary>Tooltip: the alert levels and which one, if any, has been reached.</summary>
     [ObservableProperty]
@@ -158,6 +172,10 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         IsStale = _lastPrice is not null;
         Detail = reason;
+
+        // The open/closed state was a snapshot of the last good refresh; it would go wrong while we can't refresh.
+        MarketText = _market?.Exchange ?? string.Empty;
+        IsMarketOpen = false;
     }
 
     private void ShowQuote(Quote quote)
@@ -173,6 +191,9 @@ public sealed partial class QuoteItemViewModel : ObservableObject
 
         IsStale = false;
         Detail = $"As of {Formats.Timestamp(quote.AsOf)}";
+        _market = quote.Market;
+        MarketText = DescribeMarket(quote.Market);
+        IsMarketOpen = quote.Market?.State == MarketState.Open;
     }
 
     private void ShowHolding(decimal price)
@@ -189,7 +210,31 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         var level = _holding.Alerts.Evaluate(price);
         IsReviewAlert = level == AlertLevel.Review;
         IsSellAlert = level == AlertLevel.Sell;
+        AlertBadge = level switch
+        {
+            AlertLevel.Review => "REVIEW",
+            AlertLevel.Sell => "SELL",
+            _ => string.Empty,
+        };
         AlertDescription = DescribeAlerts(_holding.Alerts, level);
+    }
+
+    private string DescribeMarket(Market? market)
+    {
+        if (market is null)
+        {
+            return string.Empty;
+        }
+
+        var state = market switch
+        {
+            { State: MarketState.Open } => "open",
+            { State: MarketState.BeforeOpen, OpensAt: { } opensAt } => $"opens {Formats.OpeningTime(opensAt, _clock.GetUtcNow())}",
+            { State: MarketState.Closed } => "closed",
+            _ => string.Empty,
+        };
+
+        return string.Join(" · ", new[] { market.Exchange, state }.Where(part => part.Length > 0));
     }
 
     private static string DescribeAlerts(PriceAlerts alerts, AlertLevel level)
