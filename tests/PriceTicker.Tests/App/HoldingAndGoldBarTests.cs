@@ -149,6 +149,24 @@ public sealed class HoldingAndGoldBarTests
         Assert.False(item.IsPositionUp);
     }
 
+    [Theory]
+    [InlineData("2030-03-10", "10.03.2030", "6 mo 9 d")]
+    [InlineData("2029-06-01", "01.06.2029", "1 y 3 mo")]
+    [InlineData("2030-09-16", "16.09.2030", "3 d")]
+    public void Row_WithFirstPurchase_ShowsDateAndTimeHeld(string firstPurchase, string expectedSince, string expectedFor)
+    {
+        var instrument = TestInstruments.Create("sxr8");
+        var position = new Position(2m, 1000m, DateOnly.Parse(firstPurchase, CultureInfo.InvariantCulture));
+        var clock = new FakeTimeProvider(new DateTimeOffset(2030, 9, 19, 12, 0, 0, TimeSpan.Zero));
+        clock.SetLocalTimeZone(TimeZoneInfo.Utc);
+        var item = new QuoteItemViewModel(instrument, new Holding(null, PriceAlerts.None, position), clock);
+
+        item.Apply(new QuoteAvailable(new Quote(instrument, 500m, null, "EUR", DateTimeOffset.UnixEpoch)));
+
+        Assert.Equal(expectedSince, item.HeldSinceText);
+        Assert.Equal(expectedFor, item.HeldForText);
+    }
+
     [Fact]
     public void Row_WithPositionButNoPurchasePrice_ShowsNoBoughtLine()
     {
@@ -157,6 +175,7 @@ public sealed class HoldingAndGoldBarTests
         Assert.Equal(string.Empty, item.HoldingText);
         Assert.True(item.IsPositionUp);
         Assert.True(item.HasPosition);
+        Assert.Equal(string.Empty, item.HeldSinceText);
     }
 
     [Fact]

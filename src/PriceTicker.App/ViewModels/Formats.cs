@@ -1,4 +1,5 @@
 using System.Globalization;
+using PriceTicker.Core.Holdings;
 
 namespace PriceTicker.App.ViewModels;
 
@@ -24,6 +25,17 @@ internal static class Formats
         var format = local.Date == now.ToLocalTime().Date ? "HH:mm" : "ddd HH:mm";
         return local.ToString(format, CultureInfo.InvariantCulture);
     }
+
+    /// <summary>"10.03.2030".</summary>
+    public static string Date(DateOnly date) => date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+
+    /// <summary>The two largest units: "1 y 2 mo", "6 mo 9 d", "17 d".</summary>
+    public static string Period(HoldingPeriod period) => period switch
+    {
+        { Years: > 0 } => $"{period.Years} y {period.Months} mo",
+        { Months: > 0 } => $"{period.Months} mo {period.Days} d",
+        _ => $"{period.Days} d",
+    };
 
     /// <summary>"22.11.2026 19:27" in local time.</summary>
     public static string Timestamp(DateTimeOffset time) =>

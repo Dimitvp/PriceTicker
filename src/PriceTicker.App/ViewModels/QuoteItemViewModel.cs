@@ -58,6 +58,14 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     [ObservableProperty]
     private string _positionGainText = string.Empty;
 
+    /// <summary>"10.03.2030": the first purchase; empty when not configured.</summary>
+    [ObservableProperty]
+    private string _heldSinceText = string.Empty;
+
+    /// <summary>"6 mo 9 d": how long the position has been held.</summary>
+    [ObservableProperty]
+    private string _heldForText = string.Empty;
+
     [ObservableProperty]
     private bool _isPositionUp;
 
@@ -230,6 +238,13 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         PositionGainText = $"{Formats.Signed(gain)} %";
         IsPositionUp = gain > 0m;
         IsPositionDown = gain < 0m;
+
+        var today = DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
+        if (position is { FirstPurchase: { } first } && position.HeldFor(today) is { } heldFor)
+        {
+            HeldSinceText = Formats.Date(first);
+            HeldForText = Formats.Period(heldFor);
+        }
     }
 
     private void ShowHolding(decimal price)

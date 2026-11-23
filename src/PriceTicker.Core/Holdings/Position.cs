@@ -7,18 +7,26 @@ namespace PriceTicker.Core.Holdings;
 /// </summary>
 public sealed record Position
 {
-    public Position(decimal quantity, decimal invested)
+    public Position(decimal quantity, decimal invested, DateOnly? firstPurchase = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(quantity);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(invested);
 
         Quantity = quantity;
         Invested = invested;
+        FirstPurchase = firstPurchase;
     }
 
     public decimal Quantity { get; }
 
     public decimal Invested { get; }
+
+    /// <summary>Date of the first purchase, when known: how long the position has been held.</summary>
+    public DateOnly? FirstPurchase { get; }
+
+    /// <summary>Time held up to <paramref name="today"/>; null without <see cref="FirstPurchase"/>.</summary>
+    public HoldingPeriod? HeldFor(DateOnly today) =>
+        FirstPurchase is { } first ? HoldingPeriod.Between(first, today) : null;
 
     /// <summary>What selling everything at <paramref name="price"/> would bring, before the sale's own costs.</summary>
     public decimal ValueAt(decimal price) => Quantity * price;

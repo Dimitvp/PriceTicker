@@ -108,7 +108,10 @@ build. Start from `appsettings.Local.example.json`:
   "Ticker": {
     "Holdings": {
       // Keyed by instrument Id. Prices exclude commissions; copy the alert levels from IBKR.
-      "smh": { "PurchasePrice": 100.00, "ReviewAtOrBelow": 80.00, "SellAtOrBelow": 60.00, "SellAtOrAbove": 150.00 }
+      "smh": { "PurchasePrice": 100.00, "ReviewAtOrBelow": 80.00, "SellAtOrBelow": 60.00, "SellAtOrAbove": 150.00 },
+      // A position built by monthly buys: no single purchase price. Copy Position and
+      // Position × Avg Price (commissions included) from IBKR after each purchase.
+      "sxr8": { "Quantity": 2.0, "Invested": 1000.00, "FirstPurchase": "2026-01-15" }
     },
     // Optional headed sections, in order; instruments in no group come last without a heading.
     "Groups": [

@@ -242,6 +242,7 @@
           <ColumnDefinition Width="Auto" SharedSizeGroup="Invested" />
           <ColumnDefinition Width="Auto" SharedSizeGroup="Value" />
           <ColumnDefinition Width="Auto" SharedSizeGroup="Gain" />
+          <ColumnDefinition Width="Auto" SharedSizeGroup="HeldSince" />
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="4" Classes="column-heading" Text="Invested"
                    ToolTip.Tip="Money put in so far, commissions included (EUR)" />
@@ -249,6 +250,8 @@
                    ToolTip.Tip="What selling the whole position at this price would bring, before the sale's costs (EUR)" />
         <TextBlock Grid.Column="6" Classes="column-heading" Text="Gain"
                    ToolTip.Tip="The whole position against the money put in" />
+        <TextBlock Grid.Column="7" Classes="column-heading" Text="Held since"
+                   ToolTip.Tip="First purchase, and how long ago it was" />
       </Grid>
       <ItemsControl ItemsSource="{Binding Groups}">
         <ItemsControl.ItemsPanel>
@@ -278,6 +281,7 @@
                         <ColumnDefinition Width="Auto" SharedSizeGroup="Invested" />
                         <ColumnDefinition Width="Auto" SharedSizeGroup="Value" />
                         <ColumnDefinition Width="Auto" SharedSizeGroup="Gain" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="HeldSince" />
                       </Grid.ColumnDefinitions>
                       <StackPanel Grid.Column="0" Margin="0,0,18,0" VerticalAlignment="Center"
                                   Background="Transparent" ToolTip.Tip="{Binding AlertDescription}">
@@ -316,6 +320,11 @@
                       <TextBlock Grid.Column="6" Classes="position" MinWidth="72"
                                  Classes.up="{Binding IsPositionUp}" Classes.down="{Binding IsPositionDown}"
                                  Text="{Binding PositionGainText}" />
+                      <StackPanel Grid.Column="7" Margin="20,0,0,0" VerticalAlignment="Center">
+                        <TextBlock HorizontalAlignment="Right" Text="{Binding HeldSinceText}" />
+                        <TextBlock Classes="market" HorizontalAlignment="Right" Text="{Binding HeldForText}"
+                                   IsVisible="{Binding HeldForText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                      </StackPanel>
                     </Grid>
                     </Border>
                   </DataTemplate>

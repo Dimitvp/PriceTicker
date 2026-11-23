@@ -76,12 +76,15 @@ public sealed class HoldingOptions
     /// <summary>Total money put in, commissions included (IBKR: Position × Avg Price, or Cost Basis).</summary>
     public decimal? Invested { get; set; }
 
+    /// <summary>Date of the first purchase ("2030-03-10"), to show how long the position has been held.</summary>
+    public DateOnly? FirstPurchase { get; set; }
+
     public bool HasPosition => Quantity is not null && Invested is not null;
 
     public Holding ToHolding() =>
         new(
             PurchasePrice,
             new PriceAlerts(ReviewAtOrBelow, SellAtOrBelow, SellAtOrAbove),
-            HasPosition ? new Position(Quantity!.Value, Invested!.Value) : null);
+            HasPosition ? new Position(Quantity!.Value, Invested!.Value, FirstPurchase) : null);
 }
 
