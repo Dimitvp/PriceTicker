@@ -5,11 +5,13 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Avalonia.Media;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using PriceTicker.App.Composition;
 using PriceTicker.App.Diagnostics;
+using PriceTicker.App.Platform;
 using PriceTicker.App.ViewModels;
 using PriceTicker.App.Views;
 using Serilog;
@@ -84,6 +86,30 @@ public sealed partial class App : Application
         };
     }
 
+    /// <summary>Brings the widget forward whenever the exe is launched again while this copy runs.</summary>
+    internal void ShowOnRequestFrom(SingleInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        instance.ShowRequested += (_, _) => Dispatcher.UIThread.Post(ShowMainWindow);
+        instance.Listen();
+    }
+
+    private void ShowMainWindow()
+    {
+        if (_desktop?.MainWindow is not { } window)
+        {
+            return;
+        }
+
+        window.Show();
+        if (window.WindowState == WindowState.Minimized)
+        {
+            window.WindowState = WindowState.Normal;
+        }
+
+        window.Activate();
+    }
+
     private void OnTrayIconClicked(object? sender, EventArgs e) => ToggleMainWindow();
 
     private void OnShowHideClicked(object? sender, EventArgs e) => ToggleMainWindow();
@@ -116,8 +142,7 @@ public sealed partial class App : Application
         }
         else
         {
-            window.Show();
-            window.Activate();
+            ShowMainWindow();
         }
     }
 

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Avalonia;
 using PriceTicker.App.Diagnostics;
+using PriceTicker.App.Platform;
 using Serilog;
 
 namespace PriceTicker.App;
@@ -14,14 +15,24 @@ internal static class Program
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
+        SingleInstance? instance = null;
         try
         {
+            instance = SingleInstance.Acquire();
+            if (!instance.IsFirst)
+            {
+                Log.Information("PriceTicker is already running; asked it to show its window.");
+                return 0;
+            }
+
             Log.Information(
                 "PriceTicker {Version} starting from {Path}.",
                 Assembly.GetExecutingAssembly().GetName().Version,
                 Environment.ProcessPath);
 
-            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            return BuildAvaloniaApp()
+                .AfterSetup(builder => ((App)builder.Instance!).ShowOnRequestFrom(instance))
+                .StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
         {
@@ -35,7 +46,12 @@ internal static class Program
         }
         finally
         {
-            Log.Information("PriceTicker stopped.");
+            if (instance?.IsFirst == true)
+            {
+                Log.Information("PriceTicker stopped.");
+            }
+
+            instance?.Dispose();
             Log.CloseAndFlush();
         }
     }
