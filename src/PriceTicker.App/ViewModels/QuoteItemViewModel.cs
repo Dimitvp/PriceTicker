@@ -27,6 +27,7 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         _clock = clock ?? TimeProvider.System;
         InstrumentId = instrument.Id;
         DisplayName = instrument.DisplayName;
+        IsinText = instrument.Isin?.Value ?? string.Empty;
         _holding = holding;
         AlertDescription = holding is null ? null : DescribeAlerts(holding.Alerts, AlertLevel.None);
     }
@@ -38,12 +39,19 @@ public sealed partial class QuoteItemViewModel : ObservableObject
 
     public string DisplayName { get; }
 
+    /// <summary>"IE00B5BMR087"; empty for instruments without an ISIN (Bitcoin).</summary>
+    public string IsinText { get; }
+
+    /// <summary>The grey line under the name: the ISIN and, for a one-off purchase, the "Bought" text.</summary>
+    public string SubtitleText => string.Join(" · ", new[] { IsinText, HoldingText }.Where(part => part.Length > 0));
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShownPriceText))]
     private string _priceText = "—";
 
     /// <summary>"Bought 100.00 · +5.00 %" under the name; empty without a one-off purchase price.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SubtitleText))]
     private string _holdingText = string.Empty;
 
     /// <summary>"1,608.51": the money put into the position so far; empty when no position is configured.</summary>

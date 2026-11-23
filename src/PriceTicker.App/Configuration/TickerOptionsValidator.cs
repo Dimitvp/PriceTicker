@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using PriceTicker.Core.Instruments;
 
 namespace PriceTicker.App.Configuration;
 
@@ -40,6 +41,10 @@ public sealed class TickerOptionsValidator : IValidateOptions<TickerOptions>
             .GroupBy(instrument => instrument.Id, StringComparer.Ordinal)
             .Where(group => group.Count() > 1)
             .Select(group => $"Ticker:Instruments has duplicate Id '{group.Key}'."));
+
+        failures.AddRange(options.Instruments
+            .Where(instrument => !string.IsNullOrWhiteSpace(instrument.Isin) && !Isin.TryParse(instrument.Isin, out _))
+            .Select(instrument => $"Ticker:Instruments '{instrument.Id}' has Isin '{instrument.Isin}', which is not a valid ISIN (check the characters and the last digit)."));
 
         var instrumentIds = options.Instruments.Select(instrument => instrument.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         failures.AddRange(options.Holdings

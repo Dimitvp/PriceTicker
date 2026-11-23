@@ -49,7 +49,11 @@ public sealed class InstrumentOptions
 
     public string Provider { get; set; } = string.Empty;
 
-    public Instrument ToInstrument() => new(Id, DisplayName, Symbol, Provider);
+    /// <summary>Optional ISIN, shown under the name; the validator checks its check digit.</summary>
+    public string? Isin { get; set; }
+
+    public Instrument ToInstrument() =>
+        new(Id, DisplayName, Symbol, Provider, Core.Instruments.Isin.TryParse(Isin, out var isin) ? isin : null);
 }
 
 /// <summary>

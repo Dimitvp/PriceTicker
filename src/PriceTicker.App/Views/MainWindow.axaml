@@ -300,8 +300,8 @@
                             <TextBlock Text="{Binding AlertBadge}" />
                           </Border>
                         </StackPanel>
-                        <TextBlock Classes="holding" Text="{Binding HoldingText}"
-                                   IsVisible="{Binding HoldingText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <TextBlock Classes="holding" Text="{Binding SubtitleText}"
+                                   IsVisible="{Binding SubtitleText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                       </StackPanel>
                       <controls:Sparkline Grid.Column="1" Height="36"
                                           Values="{Binding ChartValues}"

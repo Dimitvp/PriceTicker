@@ -77,6 +77,16 @@ public sealed class TickerOptionsValidatorTests
     }
 
     [Fact]
+    public void Validate_WithMistypedIsin_FailsAndNamesTheInstrument()
+    {
+        var instrument = Instrument("a");
+        instrument.Isin = "US0378331006";
+        var options = Options(TimeSpan.FromMinutes(5), instrument);
+
+        AssertFailsWith(_validator.Validate(null, options), "'a' has Isin 'US0378331006', which is not a valid ISIN");
+    }
+
+    [Fact]
     public void Validate_WithPositionOnly_Succeeds()
     {
         var options = Options(TimeSpan.FromMinutes(5), Instrument("a"));

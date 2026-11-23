@@ -6,7 +6,7 @@ namespace PriceTicker.Core.Instruments;
 /// </summary>
 public sealed record Instrument
 {
-    public Instrument(string id, string displayName, string symbol, string providerKey)
+    public Instrument(string id, string displayName, string symbol, string providerKey, Isin? isin = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
@@ -17,6 +17,7 @@ public sealed record Instrument
         DisplayName = displayName;
         Symbol = symbol;
         ProviderKey = providerKey;
+        Isin = isin;
     }
 
     /// <summary>Stable identifier, unique within the configured list.</summary>
@@ -30,4 +31,7 @@ public sealed record Instrument
 
     /// <summary>Key of the provider (<see cref="IKeyedProvider"/>) that supplies this instrument's prices and chart.</summary>
     public string ProviderKey { get; }
+
+    /// <summary>The security's ISIN; none for a coin.</summary>
+    public Isin? Isin { get; }
 }

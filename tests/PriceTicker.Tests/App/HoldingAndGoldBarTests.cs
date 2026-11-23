@@ -5,6 +5,7 @@ using PriceTicker.App.Configuration;
 using PriceTicker.App.ViewModels;
 using PriceTicker.Core.Bullion;
 using PriceTicker.Core.Holdings;
+using PriceTicker.Core.Instruments;
 using PriceTicker.Core.Quotes;
 using PriceTicker.Tests.TestDoubles;
 
@@ -165,6 +166,20 @@ public sealed class HoldingAndGoldBarTests
 
         Assert.Equal(expectedSince, item.HeldSinceText);
         Assert.Equal(expectedFor, item.HeldForText);
+    }
+
+    [Fact]
+    public void Subtitle_JoinsTheIsinAndTheBoughtText()
+    {
+        Assert.True(Isin.TryParse("US0378331005", out var isin));
+        var instrument = new Instrument("a", "Apple", "AAPL", "Fake", isin);
+        var item = new QuoteItemViewModel(instrument, new Holding(100m, PriceAlerts.None));
+
+        Assert.Equal("US0378331005", item.SubtitleText);
+
+        item.Apply(new QuoteAvailable(new Quote(instrument, 110m, null, "EUR", DateTimeOffset.UnixEpoch)));
+
+        Assert.Equal($"US0378331005 · {item.HoldingText}", item.SubtitleText);
     }
 
     [Fact]
