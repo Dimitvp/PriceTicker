@@ -36,34 +36,46 @@ public sealed class YahooChartHistoryTests
     }
 
     [Fact]
-    public void ToHistory_ForDay_KeepsTheLastTradingDayOfBarsAcrossSessions()
+    public void ToHistory_ForDay_ShowsTheLastSessionAgainstThePreviousSessionsClose()
     {
-        // Last session's 100 bars, then the first 2 bars after the next open (Yahoo's range=1d is empty then).
-        var bars = 120;
-        var timestamps = Enumerable.Range(0, bars).Select(i => 1_800_000_000L + (i * 300)).ToList();
-        var closes = Enumerable.Range(0, bars).Select(i => (decimal?)(100 + i)).ToList();
-        closes[10] = null;
+        var history = Day(Session(Friday, 100m, 102), Session(Monday, 110m, 102), Session(Tuesday, 120m, 30));
 
-        var history = Day(timestamps, closes);
-
-        var start = bars - YahooChartMapper.DayBars;
-        Assert.Equal(YahooChartMapper.DayBars, history.Points.Count);
-        Assert.Equal(100m + start, history.Points[0].Price);
-        Assert.Equal(100m + bars - 1, history.Points[^1].Price);
-        Assert.Equal(100m + start - 1, history.Baseline);
+        Assert.All(history.Points, point => Assert.Equal(Tuesday, point.Time.UtcDateTime.Date));
+        Assert.Equal(30, history.Points.Count);
+        Assert.Equal(110m + 101, history.Baseline);
     }
 
     [Fact]
-    public void ToHistory_ForDay_CountsEmptyBarsSoAnIlliquidEtfStillGetsOneDay()
+    public void ToHistory_ForDay_StaysOnThePreviousSessionUntilTheNewOneHasTwoBars()
     {
-        var bars = 200;
-        var timestamps = Enumerable.Range(0, bars).Select(i => 1_800_000_000L + (i * 300)).ToList();
-        var closes = Enumerable.Range(0, bars).Select(i => i % 4 == 0 ? (decimal?)(100 + i) : null).ToList();
+        var history = Day(Session(Friday, 100m, 102), Session(Monday, 110m, 102), Session(Tuesday, 120m, 1));
 
-        var history = Day(timestamps, closes);
+        Assert.All(history.Points, point => Assert.Equal(Monday, point.Time.UtcDateTime.Date));
+        Assert.Equal(100m + 101, history.Baseline);
+    }
 
-        Assert.True(history.Points[0].Time >= DateTimeOffset.FromUnixTimeSeconds(timestamps[bars - YahooChartMapper.DayBars]));
-        Assert.InRange(history.Points.Count, (YahooChartMapper.DayBars / 4) - 1, (YahooChartMapper.DayBars / 4) + 1);
+    [Fact]
+    public void ToHistory_ForDay_WithOneSession_UsesYahoosPreviousClose()
+    {
+        var history = Day(Session(Monday, 110m, 50));
+
+        Assert.Equal(50, history.Points.Count);
+        Assert.Equal(1m, history.Baseline);
+    }
+
+    private static readonly DateTime Friday = new(2030, 3, 8, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime Monday = Friday.AddDays(3);
+    private static readonly DateTime Tuesday = Friday.AddDays(4);
+
+    // Five-minute bars from 08:00 UTC with closes start, start + 1, …
+    private static IEnumerable<(long Time, decimal? Close)> Session(DateTime day, decimal start, int bars) =>
+        Enumerable.Range(0, bars).Select(i =>
+            (new DateTimeOffset(day.AddHours(8).AddMinutes(5 * i)).ToUnixTimeSeconds(), (decimal?)(start + i)));
+
+    private static PriceHistory Day(params IEnumerable<(long Time, decimal? Close)>[] sessions)
+    {
+        var bars = sessions.SelectMany(session => session).ToList();
+        return Day(bars.Select(bar => bar.Time).ToList(), bars.Select(bar => bar.Close).ToList());
     }
 
     private static PriceHistory Day(IReadOnlyList<long> timestamps, IReadOnlyList<decimal?> closes)

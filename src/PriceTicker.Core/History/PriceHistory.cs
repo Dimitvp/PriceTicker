@@ -20,7 +20,8 @@ public sealed record PriceHistory
 
         Instrument = instrument;
         Range = range;
-        Baseline = previousClose is > 0m ? previousClose.Value : Points[0].Price;
+        HasPreviousClose = previousClose is > 0m;
+        Baseline = HasPreviousClose ? previousClose!.Value : Points[0].Price;
     }
 
     public Instrument Instrument { get; }
@@ -34,6 +35,9 @@ public sealed record PriceHistory
     /// provider reports it, otherwise the first point.
     /// </summary>
     public decimal Baseline { get; }
+
+    /// <summary>The baseline is the close before the first point, not the first point itself.</summary>
+    public bool HasPreviousClose { get; }
 
     /// <summary>Change from <see cref="Baseline"/> to <paramref name="price"/> in percent, or null when undefined.</summary>
     public decimal? ChangePercentTo(decimal price) =>

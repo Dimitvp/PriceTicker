@@ -343,14 +343,24 @@ public sealed partial class QuoteItemViewModel : ObservableObject
             range is ChartRange.Day or ChartRange.Week ? "dd.MM HH:mm" : "dd.MM.yyyy",
             CultureInfo.CurrentCulture);
 
+    private static string DescribeChartChange(PriceHistory history) =>
+        history.HasPreviousClose
+            ? $"Change since the close before {Formats.Timestamp(history.Points[0].Time)}"
+            : $"Change since {Formats.Timestamp(history.Points[0].Time)}";
+
     private void ShowChange()
     {
-        var hasChart = _lastPrice is not null && _history is not null;
-        var change = hasChart ? _history!.ChangePercentTo(_lastPrice!.Value) : _dailyChangePercent;
+        // 1D uses the provider's own daily change: it is measured from the official close (the closing
+        // auction), which the last intraday bar of the chart can miss by a few tenths of a percent.
+        var isDaily = _history is null || (_history.Range == ChartRange.Day && _dailyChangePercent is not null);
+        var change = isDaily ? _dailyChangePercent
+            : _lastPrice is { } price ? _history!.ChangePercentTo(price)
+            : null;
 
         ChangeDescription = change is null ? null
-            : hasChart ? $"Change since {Formats.Timestamp(_history!.Points[0].Time)}"
-            : "Daily change (chart unavailable)";
+            : !isDaily ? DescribeChartChange(_history!)
+            : _history is null ? "Daily change (chart unavailable)"
+            : "Change since the previous close";
 
         ChangeText = change is { } percent
             ? $"{Formats.Signed(percent)} %"

@@ -64,7 +64,7 @@ public sealed partial class YahooChartProvider : IQuoteProvider, IPriceHistoryPr
             (instrument, reason) => new HistoryUnavailable(instrument, reason),
             cancellationToken);
 
-    // "1D" asks for five sessions and keeps the last trading day of bars (see YahooChartMapper):
+    // "1D" asks for five sessions and keeps the last one (see YahooChartMapper.LastSession):
     // Yahoo's own range=1d is the *current* session, empty for its first minutes after the open
     // (its intraday data is delayed), which left the 1D charts blank every morning.
     internal static string HistoryQuery(ChartRange range) => range switch

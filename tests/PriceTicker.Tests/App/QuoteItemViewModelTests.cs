@@ -118,6 +118,19 @@ public sealed class QuoteItemViewModelTests
     }
 
     [Fact]
+    public void DayChart_ShowsTheOfficialDailyChange_NotTheChangeFromTheChartsFirstPoint()
+    {
+        var instrument = TestInstruments.Create("a");
+        var item = new QuoteItemViewModel(instrument);
+        item.Apply(new QuoteAvailable(new Quote(instrument, 110m, 100m, "EUR", DateTimeOffset.UnixEpoch)));
+
+        item.ApplyHistory(FakeHistoryService.History(ChartRange.Day, [instrument], 50m, 60m)[0]);
+
+        Assert.Equal("+10.00 %", item.ChangeText);
+        Assert.Equal("Change since the previous close", item.ChangeDescription);
+    }
+
+    [Fact]
     public void Hovering_ShowsThatPointsPriceAndDate_ThenRestoresLiveValues()
     {
         var (item, _) = ItemWithChart(ChartRange.Year, live: 12m, 10m, 11m, 12m);

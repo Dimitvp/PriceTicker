@@ -100,7 +100,8 @@ public sealed class TickerViewModelTests
 
         var loop = viewModel.RunAutoRefreshAsync(cancellation.Token);
         await service.WaitForCallAsync();
-        Assert.Equal("Refresh failed.", viewModel.Items[0].Detail);
+        // The fake signals as the call starts; the failure reaches the row a moment later.
+        await WaitUntilAsync(() => viewModel.Items[0].Detail == "Refresh failed.");
 
         clock.Advance(Interval);
         await service.WaitForCallAsync();
@@ -191,4 +192,13 @@ public sealed class TickerViewModelTests
 
     private static TickerViewModel CreateViewModel(IQuoteService service, TimeProvider clock, IAutoStart autoStart, params string[] ids) =>
         TestViewModels.Create(service, clock, autoStart, ids: ids);
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!condition())
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(5), timeout.Token);
+        }
+    }
 }

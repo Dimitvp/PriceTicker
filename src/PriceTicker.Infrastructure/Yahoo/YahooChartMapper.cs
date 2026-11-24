@@ -53,26 +53,10 @@ internal static class YahooChartMapper
         return exchange.Length == 0 ? null : new Market(exchange, MarketState.Unknown);
     }
 
-    /// <summary>
-    /// Five-minute bars in one trading day of the European exchanges used (09:00–17:30): the 1D
-    /// chart is a rolling day of trading, so right after the open it still shows the last session.
-    /// </summary>
-    internal const int DayBars = 102;
-
     public static HistoryResult ToHistory(Instrument instrument, ChartRange range, YahooChartResult? chart)
     {
         IReadOnlyList<long> timestamps = chart?.Timestamps ?? [];
         IReadOnlyList<decimal?> closes = chart?.Indicators?.Quote is [var series, ..] ? series.Close ?? [] : [];
-        var previousClose = chart?.Meta?.ChartPreviousClose;
-
-        if (range == ChartRange.Day && timestamps.Count > DayBars)
-        {
-            // Bars are counted as time slots, not prices: an illiquid ETF with empty bars still gets one day.
-            var start = timestamps.Count - DayBars;
-            previousClose = closes.Take(start).LastOrDefault(close => close is >= 0m) ?? previousClose;
-            timestamps = [.. timestamps.Skip(start)];
-            closes = [.. closes.Skip(start)];
-        }
 
         // Timestamps and closes are parallel arrays; gaps (null closes) are skipped.
         var points = timestamps
@@ -84,8 +68,33 @@ internal static class YahooChartMapper
             .OfType<PricePoint>()
             .ToList();
 
+        var previousClose = chart?.Meta?.ChartPreviousClose;
+        if (range == ChartRange.Day)
+        {
+            (points, previousClose) = LastSession(points, previousClose);
+        }
+
         return points.Count == 0
             ? new HistoryUnavailable(instrument, "No chart data.")
             : new HistoryAvailable(new PriceHistory(instrument, range, points, previousClose));
+    }
+
+    /// <summary>
+    /// 1D is the last trading session, measured from the close of the session before it, like the
+    /// broker's daily change. Until a new session has two bars (Yahoo's intraday data lags the open)
+    /// it stays on the previous one, so the chart is never blank.
+    /// </summary>
+    private static (List<PricePoint> Points, decimal? PreviousClose) LastSession(List<PricePoint> points, decimal? fallbackPreviousClose)
+    {
+        // The exchanges used trade within one UTC day (08:00–16:30), so the UTC date names the session.
+        var sessions = points.GroupBy(point => point.Time.UtcDateTime.Date).ToList();
+        var latest = sessions.Count > 1 && sessions[^1].Count() < 2 ? sessions.Count - 2 : sessions.Count - 1;
+        if (latest < 0)
+        {
+            return (points, fallbackPreviousClose);
+        }
+
+        var previousClose = latest > 0 ? sessions[latest - 1].Last().Price : fallbackPreviousClose;
+        return ([.. sessions[latest]], previousClose);
     }
 }
