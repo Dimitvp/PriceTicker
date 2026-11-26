@@ -7,6 +7,7 @@ using PriceTicker.App.Configuration;
 using PriceTicker.App.Platform;
 using PriceTicker.Core.History;
 using PriceTicker.Core.Instruments;
+using PriceTicker.Core.Quotas;
 using PriceTicker.Core.Quotes;
 
 namespace PriceTicker.App.ViewModels;
@@ -16,13 +17,14 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
 {
     private readonly IQuoteService _quoteService;
     private readonly IPriceHistoryService _historyService;
+    private readonly IExtendedHoursQuoteService _extendedHoursService;
+    private readonly IDailyQuotaSource _quotaSource;
     private readonly IAutoStart _autoStart;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<TickerViewModel> _logger;
     private readonly TimeSpan _refreshInterval;
     private readonly IReadOnlyList<Instrument> _instruments;
     private readonly Dictionary<string, QuoteItemViewModel> _itemsById;
-    private bool _isRefreshing;
     private bool _isRevertingStartsWithWindows;
     private CancellationTokenSource? _rangeChange;
     private readonly Dictionary<ChartRange, LoadedCharts> _chartCache = [];
@@ -34,9 +36,17 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
     /// </summary>
     internal static readonly TimeSpan LongRangeChartMaxAge = TimeSpan.FromHours(1);
 
+    /// <summary>Showing the window again refreshes it when the last prices are older than this.</summary>
+    internal static readonly TimeSpan RefreshOnShowAfter = TimeSpan.FromMinutes(1);
+
+    /// <summary>Below this many credits left today, the counter turns to the "down" colour.</summary>
+    internal const int LowQuotaThreshold = 100;
+
     public TickerViewModel(
         IQuoteService quoteService,
         IPriceHistoryService historyService,
+        IExtendedHoursQuoteService extendedHoursService,
+        IDailyQuotaSource quotaSource,
         GoldBarViewModel goldBar,
         IOptions<TickerOptions> options,
         TimeProvider timeProvider,
@@ -45,6 +55,8 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
     {
         ArgumentNullException.ThrowIfNull(quoteService);
         ArgumentNullException.ThrowIfNull(historyService);
+        ArgumentNullException.ThrowIfNull(extendedHoursService);
+        ArgumentNullException.ThrowIfNull(quotaSource);
         ArgumentNullException.ThrowIfNull(goldBar);
         ArgumentNullException.ThrowIfNull(autoStart);
         ArgumentNullException.ThrowIfNull(options);
@@ -53,6 +65,8 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
 
         _quoteService = quoteService;
         _historyService = historyService;
+        _extendedHoursService = extendedHoursService;
+        _quotaSource = quotaSource;
         GoldBar = goldBar;
         _timeProvider = timeProvider;
         _autoStart = autoStart;
@@ -100,6 +114,28 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(LastUpdatedText))]
     private DateTimeOffset? _lastUpdated;
 
+    /// <summary>The time of the oldest price on screen: how far behind the widget can be.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LastUpdatedText))]
+    private DateTimeOffset? _oldestPriceAsOf;
+
+    /// <summary>A refresh is running; the refresh button is dimmed meanwhile.</summary>
+    [ObservableProperty]
+    private bool _isRefreshing;
+
+    /// <summary>"Twelve Data: 742 / 800 left today"; empty when no provider has a daily limit.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasQuota))]
+    private string _quotaText = string.Empty;
+
+    [ObservableProperty]
+    private string? _quotaDescription;
+
+    [ObservableProperty]
+    private bool _isQuotaLow;
+
+    public bool HasQuota => QuotaText.Length > 0;
+
     [ObservableProperty]
     private bool _isAlwaysOnTop = true;
 
@@ -109,8 +145,11 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
 
     public bool IsAutoStartSupported => _autoStart.IsSupported;
 
+    /// <summary>"Checked 09:48 · oldest price Wed 17:35": when prices were fetched, and how old the oldest is.</summary>
     public string LastUpdatedText => LastUpdated is { } updated
-        ? $"Updated {updated.ToString("HH:mm", CultureInfo.CurrentCulture)}"
+        ? OldestPriceAsOf is { } oldest
+            ? $"Checked {updated.ToString("HH:mm", CultureInfo.CurrentCulture)} · oldest price {Formats.ClockTime(oldest, updated)}"
+            : $"Checked {updated.ToString("HH:mm", CultureInfo.CurrentCulture)}"
         : "Loading…";
 
     /// <summary>
@@ -136,34 +175,57 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>The refresh button, the tray and the context menu: refresh now, whatever the timer says.</summary>
+    [RelayCommand]
+    private Task RefreshNowAsync(CancellationToken cancellationToken) => RefreshSafelyAsync(cancellationToken);
+
+    /// <summary>
+    /// Called when the window is shown again (from the tray, or by launching the exe while it runs):
+    /// refreshes at once unless the prices are less than <see cref="RefreshOnShowAfter"/> old.
+    /// </summary>
+    public Task RefreshOnShowAsync(CancellationToken cancellationToken) =>
+        LastUpdated is { } updated && _timeProvider.GetLocalNow() - updated < RefreshOnShowAfter
+            ? Task.CompletedTask
+            : RefreshSafelyAsync(cancellationToken);
+
     /// <summary>
     /// Fetches all prices and, when due, the charts for the selected range, in parallel.
     /// A call made while another is running is ignored.
     /// </summary>
-    [RelayCommand]
     internal async Task RefreshAsync(CancellationToken cancellationToken)
     {
-        if (_isRefreshing)
+        if (IsRefreshing)
         {
             return;
         }
 
-        _isRefreshing = true;
+        IsRefreshing = true;
         try
         {
             var range = SelectedRange.Range;
             var quotesTask = _quoteService.GetQuotesAsync(_instruments, cancellationToken);
+
+            // Tradegate only matters while the home exchange is shut; rows not yet priced are included.
+            var extendedHoursTask = _extendedHoursService.GetQuotesAsync(
+                [.. _instruments.Where(instrument => _itemsById[instrument.Id] is { HasIsin: true, IsMarketOpen: false })],
+                cancellationToken);
             var historyTask = AreChartsDue(range)
                 ? _historyService.GetHistoryAsync(_instruments, range, cancellationToken)
                 : null;
             // Dealer pages are slower than the price APIs: started now, awaited last, so they never hold back prices.
             var goldBarTask = GoldBar.RefreshAsync(cancellationToken);
-            await Task.WhenAll(historyTask is null ? [quotesTask] : [quotesTask, historyTask]);
+            await Task.WhenAll(historyTask is null ? [quotesTask, extendedHoursTask] : [quotesTask, extendedHoursTask, historyTask]);
 
             var quotes = await quotesTask;
             foreach (var result in quotes)
             {
                 ItemFor(result)?.Apply(result);
+            }
+
+            // After the home prices, which the extended-hours change is measured against.
+            foreach (var result in await extendedHoursTask)
+            {
+                ItemFor(result)?.ApplyExtendedHours(result);
             }
 
             if (historyTask is not null)
@@ -173,15 +235,38 @@ public sealed partial class TickerViewModel : ObservableObject, IDisposable
 
             if (quotes.Any(result => result is QuoteAvailable))
             {
+                OldestPriceAsOf = Items.Select(item => item.QuoteAsOf).Where(asOf => asOf is not null).Min();
                 LastUpdated = _timeProvider.GetLocalNow();
             }
+
+            // Last, so the count includes the credits this refresh has just spent.
+            ShowQuota(await _quotaSource.GetDailyQuotaAsync(cancellationToken));
 
             await goldBarTask;
         }
         finally
         {
-            _isRefreshing = false;
+            IsRefreshing = false;
         }
+    }
+
+    private void ShowQuota(DailyQuota? quota)
+    {
+        if (quota is null)
+        {
+            QuotaText = string.Empty;
+            QuotaDescription = null;
+            IsQuotaLow = false;
+            return;
+        }
+
+        QuotaText = $"{quota.Provider}: {quota.Left} / {quota.Limit} left today";
+        QuotaDescription =
+            $"{quota.Provider} free plan: {quota.Limit} credits a day, 8 a minute. Used today: {quota.Used}. " +
+            $"Resets at {Formats.ClockTime(quota.ResetsAt, _timeProvider.GetUtcNow())}. " +
+            "Each refresh uses about 2 (Bitcoin price and chart); the server's own count is read once an hour. " +
+            "Yahoo and Tradegate have no published daily limit.";
+        IsQuotaLow = quota.Left < LowQuotaThreshold;
     }
 
     /// <summary>Loads the charts for <paramref name="range"/> only; prices are left as they are.</summary>

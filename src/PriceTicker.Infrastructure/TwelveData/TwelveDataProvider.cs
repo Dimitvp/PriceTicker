@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PriceTicker.Core.History;
 using PriceTicker.Core.Instruments;
+using PriceTicker.Core.Quotas;
 using PriceTicker.Core.Quotes;
 
 namespace PriceTicker.Infrastructure.TwelveData;
@@ -11,28 +12,36 @@ namespace PriceTicker.Infrastructure.TwelveData;
 /// Prices instruments through Twelve Data's official API: <c>/quote</c> for all symbols in one
 /// request, <c>/time_series</c> per symbol for charts. The free plan covers forex and crypto
 /// (e.g. <c>BTC/EUR</c>; commodities need a paid plan) at 8 credits a minute and 800 a day,
-/// one credit per symbol per request.
+/// one credit per symbol per request. Every request is counted by <see cref="TwelveDataCreditMeter"/>,
+/// which refuses one that would exceed either allowance, so the API never has to say 429.
 /// </summary>
-public sealed partial class TwelveDataProvider : IQuoteProvider, IPriceHistoryProvider
+public sealed partial class TwelveDataProvider : IQuoteProvider, IPriceHistoryProvider, IDailyQuotaSource
 {
+    /// <summary>How often the server's own count is read (one credit each time): 24 credits a day.</summary>
+    internal static readonly TimeSpan UsageSyncInterval = TimeSpan.FromHours(1);
+
     public const string ProviderKey = "TwelveData";
     internal const string HttpClientName = "TwelveData";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptions<TwelveDataOptions> _options;
+    private readonly TwelveDataCreditMeter _meter;
     private readonly ILogger<TwelveDataProvider> _logger;
 
     public TwelveDataProvider(
         IHttpClientFactory httpClientFactory,
         IOptions<TwelveDataOptions> options,
+        TwelveDataCreditMeter meter,
         ILogger<TwelveDataProvider> logger)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(meter);
         ArgumentNullException.ThrowIfNull(logger);
 
         _httpClientFactory = httpClientFactory;
         _options = options;
+        _meter = meter;
         _logger = logger;
     }
 
@@ -51,6 +60,7 @@ public sealed partial class TwelveDataProvider : IQuoteProvider, IPriceHistoryPr
         var symbols = string.Join(',', instruments.Select(i => i.Symbol));
         return await SendAsync(
             $"quote?symbol={Uri.EscapeDataString(symbols)}",
+            instruments.Count,
             root => TwelveDataQuoteParser.Parse(root, instruments),
             reason => QuoteUnavailable.ForAll(instruments, reason),
             cancellationToken).ConfigureAwait(false);
@@ -66,11 +76,41 @@ public sealed partial class TwelveDataProvider : IQuoteProvider, IPriceHistoryPr
         var (interval, outputSize) = SeriesShape(range);
         var requests = instruments.Select(instrument => SendAsync<HistoryResult>(
             $"time_series?symbol={Uri.EscapeDataString(instrument.Symbol)}&interval={interval}&outputsize={outputSize}&timezone=UTC",
+            1,
             root => TwelveDataSeriesParser.Parse(root, instrument, range),
             reason => new HistoryUnavailable(instrument, reason),
             cancellationToken));
 
         return await Task.WhenAll(requests).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Today's credits. The server's count is read at most once an hour (it costs a credit, and
+    /// includes credits spent elsewhere with the same key); in between, the local count is kept.
+    /// </summary>
+    public async Task<DailyQuota?> GetDailyQuotaAsync(CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_options.Value.ApiKey))
+        {
+            return null;
+        }
+
+        if (_meter.NeedsSynchronising(UsageSyncInterval))
+        {
+            var usage = await SendAsync<(int Used, int Limit)?>(
+                "api_usage",
+                1,
+                TwelveDataUsageParser.Parse,
+                _ => null,
+                cancellationToken).ConfigureAwait(false);
+
+            if (usage is { } server)
+            {
+                _meter.Synchronise(server.Used, server.Limit);
+            }
+        }
+
+        return _meter.Snapshot();
     }
 
     // Interval and point count that span the range; Day is a true 24 hours (crypto never closes).
@@ -86,6 +126,7 @@ public sealed partial class TwelveDataProvider : IQuoteProvider, IPriceHistoryPr
 
     private async Task<T> SendAsync<T>(
         string requestUri,
+        int credits,
         Func<JsonElement, T> parse,
         Func<string, T> unavailable,
         CancellationToken cancellationToken)
@@ -94,6 +135,20 @@ public sealed partial class TwelveDataProvider : IQuoteProvider, IPriceHistoryPr
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             return unavailable("API key not set.");
+        }
+
+        switch (_meter.TryReserve(credits))
+        {
+            case CreditCheck.Reserved:
+                break;
+            case CreditCheck.MinuteLimit:
+                LogCreditsHeldBack(credits, "minute");
+                return unavailable("Twelve Data: 8 requests a minute used; next refresh.");
+            case CreditCheck.DailyLimit:
+                LogCreditsHeldBack(credits, "day");
+                return unavailable("Twelve Data: today's credits are used up (reset 00:00 UTC).");
+            default:
+                throw new InvalidOperationException("Unknown credit check result.");
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
@@ -138,6 +193,9 @@ public sealed partial class TwelveDataProvider : IQuoteProvider, IPriceHistoryPr
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Twelve Data returned HTTP {StatusCode}.")]
     private partial void LogHttpFailure(int statusCode);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Held back a Twelve Data request for {Credits} credit(s): the allowance for the {Period} is used up.")]
+    private partial void LogCreditsHeldBack(int credits, string period);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Twelve Data request failed.")]
     private partial void LogRequestFailed(Exception exception);

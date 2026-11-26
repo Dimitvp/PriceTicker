@@ -203,6 +203,7 @@ public sealed class TwelveDataProviderTests
         return new TwelveDataProvider(
             new StubHttpClientFactory(handler, new Uri("https://twelvedata.test/")),
             Options.Create(new TwelveDataOptions { ApiKey = apiKey }),
+            new TwelveDataCreditMeter(TimeProvider.System),
             NullLogger<TwelveDataProvider>.Instance);
     }
 }

@@ -17,7 +17,7 @@
         <TrayIcon.Menu>
           <NativeMenu>
             <NativeMenuItem Header="Show / hide" Click="OnShowHideClicked" />
-            <NativeMenuItem Header="Refresh now" Command="{Binding RefreshCommand}" />
+            <NativeMenuItem Header="Refresh now" Command="{Binding RefreshNowCommand}" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Always on top" ToggleType="CheckBox"
                             IsChecked="{Binding IsAlwaysOnTop}"

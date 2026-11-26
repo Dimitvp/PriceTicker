@@ -223,13 +223,15 @@ public sealed class HoldingAndGoldBarTests
         var viewModel = new TickerViewModel(
             FakeQuoteService.PricingEverythingAt(70m),
             FakeHistoryService.Returning(1m, 2m),
+            FakeExtendedHoursService.TradingNothing(),
+            FakeQuotaSource.None(),
             TestViewModels.NoGoldBar(),
             Options.Create(options),
             new FakeTimeProvider(),
             new FakeAutoStart(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<TickerViewModel>.Instance);
 
-        viewModel.RefreshCommand.Execute(null);
+        viewModel.RefreshNowCommand.Execute(null);
 
         Assert.True(viewModel.Items[0].IsReviewAlert);
         Assert.Equal(string.Empty, viewModel.Items[1].HoldingText);

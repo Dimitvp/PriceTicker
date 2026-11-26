@@ -18,13 +18,16 @@ internal static class Formats
     /// <summary>"+2.88" / "-10.00" / "0.00".</summary>
     public static string Signed(decimal value) => value.ToString("+0.00;-0.00;0.00", CultureInfo.CurrentCulture);
 
-    /// <summary>"10:00" when <paramref name="time"/> is later today, otherwise "Mon 10:00" — local time.</summary>
-    public static string OpeningTime(DateTimeOffset time, DateTimeOffset now)
+    /// <summary>"10:00" when <paramref name="time"/> is on the same day as <paramref name="now"/>, otherwise "Mon 10:00" — local time.</summary>
+    public static string ClockTime(DateTimeOffset time, DateTimeOffset now)
     {
         var local = time.ToLocalTime();
         var format = local.Date == now.ToLocalTime().Date ? "HH:mm" : "ddd HH:mm";
         return local.ToString(format, CultureInfo.InvariantCulture);
     }
+
+    /// <summary>"Wed" — the day of a past session, in local time.</summary>
+    public static string Weekday(DateTimeOffset time) => time.ToLocalTime().ToString("ddd", CultureInfo.InvariantCulture);
 
     /// <summary>"10.03.2030".</summary>
     public static string Date(DateOnly date) => date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);

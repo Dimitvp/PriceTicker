@@ -24,6 +24,7 @@ public sealed partial class App : Application
     private ServiceProvider? _services;
     private CancellationTokenSource? _shutdown;
     private IClassicDesktopStyleApplicationLifetime? _desktop;
+    private TickerViewModel? _viewModel;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -58,6 +59,7 @@ public sealed partial class App : Application
         // RunAutoRefreshAsync contains its own failures and completes when cancelled.
         _shutdown = new CancellationTokenSource();
         _ = viewModel.RunAutoRefreshAsync(_shutdown.Token);
+        _viewModel = viewModel;
 
         // The tray icon and its menu bind to the application's data context.
         DataContext = viewModel;
@@ -108,6 +110,13 @@ public sealed partial class App : Application
         }
 
         window.Activate();
+
+        // Hidden to the tray, the widget kept running but the user may have been away for hours:
+        // showing it again (tray click or launching the exe) fetches fresh prices straight away.
+        if (_viewModel is not null && _shutdown is not null)
+        {
+            _ = _viewModel.RefreshOnShowAsync(_shutdown.Token);
+        }
     }
 
     private void OnTrayIconClicked(object? sender, EventArgs e) => ToggleMainWindow();

@@ -14,6 +14,7 @@ namespace PriceTicker.App.ViewModels;
 public sealed partial class QuoteItemViewModel : ObservableObject
 {
     private decimal? _lastPrice;
+    private DateTimeOffset? _quoteAsOf;
     private string _currency = string.Empty;
     private decimal? _dailyChangePercent;
     private PriceHistory? _history;
@@ -33,6 +34,12 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     }
 
     public string InstrumentId { get; }
+
+    /// <summary>The instrument has an ISIN, so another venue can price it.</summary>
+    public bool HasIsin => IsinText.Length > 0;
+
+    /// <summary>When the shown price was set by the exchange; null until a price has arrived.</summary>
+    public DateTimeOffset? QuoteAsOf => _quoteAsOf;
 
     /// <summary>A position (quantity and money put in) is configured, so the three position columns have values.</summary>
     public bool HasPosition => _holding?.Position is not null;
@@ -97,7 +104,26 @@ public sealed partial class QuoteItemViewModel : ObservableObject
     private string _marketText = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsExtendedHours))]
     private bool _isMarketOpen;
+
+    /// <summary>"TG +9.31 %": the Tradegate price against the home exchange's last price; empty when unknown.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsExtendedHours))]
+    private string _extendedHoursText = string.Empty;
+
+    /// <summary>Tooltip for <see cref="ExtendedHoursText"/>: the Tradegate price and what it is compared with.</summary>
+    [ObservableProperty]
+    private string? _extendedHoursDescription;
+
+    [ObservableProperty]
+    private bool _isExtendedHoursUp;
+
+    [ObservableProperty]
+    private bool _isExtendedHoursDown;
+
+    /// <summary>The Tradegate line is shown only while the home exchange is not trading.</summary>
+    public bool ShowsExtendedHours => !IsMarketOpen && ExtendedHoursText.Length > 0;
 
     /// <summary>Tooltip: the alert levels and which one, if any, has been reached.</summary>
     [ObservableProperty]
@@ -176,6 +202,35 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         }
     }
 
+    /// <summary>Shows the price on the extended-hours venue next to the change; cleared when there is none.</summary>
+    public void ApplyExtendedHours(QuoteResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        if (result is not QuoteAvailable { Quote: var quote })
+        {
+            ExtendedHoursText = string.Empty;
+            ExtendedHoursDescription = null;
+            IsExtendedHoursUp = IsExtendedHoursDown = false;
+            return;
+        }
+
+        // Against the home exchange's last price, so it reads as "where it would open"; before any
+        // home price has arrived, against the venue's own previous close.
+        var change = _lastPrice is { } home && home > 0m
+            ? (quote.Price - home) / home * 100m
+            : quote.ChangePercent;
+        var venue = quote.Market?.Exchange ?? "Other venue";
+        var comparedWith = _lastPrice is { } last
+            ? $"against the last price on {HomeExchangeName} ({FormatPrice(last)})"
+            : $"against {venue}'s previous close";
+
+        ExtendedHoursText = change is { } percent ? $"TG {Formats.Signed(percent)} %" : string.Empty;
+        ExtendedHoursDescription = $"{venue} now {Formats.Price(quote.Price)} {quote.Currency}, {comparedWith}.";
+        IsExtendedHoursUp = change > 0m;
+        IsExtendedHoursDown = change < 0m;
+    }
+
     public void ApplyHistory(HistoryResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -215,12 +270,16 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         IsMarketOpen = false;
     }
 
+    private string HomeExchangeName => _market?.Exchange is { Length: > 0 } exchange ? exchange : "the home exchange";
+
     private void ShowQuote(Quote quote)
     {
         _currency = quote.Currency;
+        _quoteAsOf = quote.AsOf;
         PriceText = FormatPrice(quote.Price);
 
         _lastPrice = quote.Price;
+        _market = quote.Market;
         UpdateWidestPrice();
         ShowHolding(quote.Price);
         _dailyChangePercent = quote.ChangePercent;
@@ -228,9 +287,14 @@ public sealed partial class QuoteItemViewModel : ObservableObject
 
         IsStale = false;
         Detail = $"As of {Formats.Timestamp(quote.AsOf)}";
-        _market = quote.Market;
         MarketText = DescribeMarket(quote.Market);
         IsMarketOpen = quote.Market?.State == MarketState.Open;
+
+        // While the home exchange trades, an earlier extended-hours price would only mislead later on.
+        if (IsMarketOpen)
+        {
+            ApplyExtendedHours(new QuoteUnavailable(quote.Instrument, "Home exchange is open."));
+        }
     }
 
     private void ShowPosition(Position? position, decimal price)
@@ -289,7 +353,7 @@ public sealed partial class QuoteItemViewModel : ObservableObject
         var state = market switch
         {
             { State: MarketState.Open } => "open",
-            { State: MarketState.BeforeOpen, OpensAt: { } opensAt } => $"opens {Formats.OpeningTime(opensAt, _clock.GetUtcNow())}",
+            { State: MarketState.BeforeOpen, OpensAt: { } opensAt } => $"opens {Formats.ClockTime(opensAt, _clock.GetUtcNow())}",
             { State: MarketState.Closed } => "closed",
             _ => string.Empty,
         };
@@ -343,6 +407,23 @@ public sealed partial class QuoteItemViewModel : ObservableObject
             range is ChartRange.Day or ChartRange.Week ? "dd.MM HH:mm" : "dd.MM.yyyy",
             CultureInfo.CurrentCulture);
 
+    /// <summary>
+    /// The time of the shown price when it is from an earlier day and the exchange is not trading now
+    /// (before the open, or a weekend), so the daily change is that day's and not today's.
+    /// </summary>
+    private DateTimeOffset? PastSessionTime()
+    {
+        if (_quoteAsOf is not { } asOf || _market?.State is not (MarketState.BeforeOpen or MarketState.Closed))
+        {
+            return null;
+        }
+
+        var zone = _clock.LocalTimeZone;
+        var priceDay = TimeZoneInfo.ConvertTime(asOf, zone).Date;
+        var today = TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), zone).Date;
+        return priceDay < today ? asOf : null;
+    }
+
     private static string DescribeChartChange(PriceHistory history) =>
         history.HasPreviousClose
             ? $"Change since the close before {Formats.Timestamp(history.Points[0].Time)}"
@@ -357,13 +438,16 @@ public sealed partial class QuoteItemViewModel : ObservableObject
             : _lastPrice is { } price ? _history!.ChangePercentTo(price)
             : null;
 
+        var pastSession = isDaily ? PastSessionTime() : null;
         ChangeDescription = change is null ? null
             : !isDaily ? DescribeChartChange(_history!)
+            : pastSession is { } session ? $"Change in the last session ({Formats.Weekday(session)} {Formats.Timestamp(session)}) against the close before it; {HomeExchangeName} has not traded since"
             : _history is null ? "Daily change (chart unavailable)"
             : "Change since the previous close";
 
+        var prefix = pastSession is { } day ? $"{Formats.Weekday(day)} " : string.Empty;
         ChangeText = change is { } percent
-            ? $"{Formats.Signed(percent)} %"
+            ? $"{prefix}{Formats.Signed(percent)} %"
             : string.Empty;
         IsUp = change > 0m;
         IsDown = change < 0m;

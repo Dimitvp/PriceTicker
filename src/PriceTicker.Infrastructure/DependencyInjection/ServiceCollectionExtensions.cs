@@ -6,8 +6,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PriceTicker.Core.Bullion;
 using PriceTicker.Core.History;
+using PriceTicker.Core.Quotas;
 using PriceTicker.Core.Quotes;
 using PriceTicker.Infrastructure.Bullion;
+using PriceTicker.Infrastructure.Tradegate;
 using PriceTicker.Infrastructure.TwelveData;
 using PriceTicker.Infrastructure.Yahoo;
 
@@ -49,6 +51,12 @@ public static class ServiceCollectionExtensions
             .Validate(options => IsAbsoluteHttps(options.BaseAddress), HttpsRequired)
             .ValidateOnStart();
 
+        services.AddOptions<TradegateOptions>()
+            .Bind(configuration.GetSection(TradegateOptions.SectionName))
+            .ValidateDataAnnotations()
+            .Validate(options => IsAbsoluteHttps(options.BaseAddress), HttpsRequired)
+            .ValidateOnStart();
+
         services.AddHttpClient(YahooChartProvider.HttpClientName, (provider, client) =>
         {
             var options = provider.GetRequiredService<IOptions<YahooOptions>>().Value;
@@ -68,13 +76,25 @@ public static class ServiceCollectionExtensions
         })
         .RedactLoggedHeaders(["Authorization"]);
 
+        services.AddHttpClient(TradegateQuoteService.HttpClientName, (provider, client) =>
+        {
+            var options = provider.GetRequiredService<IOptions<TradegateOptions>>().Value;
+            client.BaseAddress = options.BaseAddress;
+            client.Timeout = options.Timeout;
+            client.DefaultRequestHeaders.UserAgent.Add(UserAgent);
+            client.MaxResponseContentBufferSize = MaxResponseBytes;
+        });
+
         // One instance per provider, exposed under each interface it implements.
         services.AddSingleton<YahooChartProvider>();
+        services.AddSingleton<TwelveDataCreditMeter>();
         services.AddSingleton<TwelveDataProvider>();
         services.AddSingleton<IQuoteProvider>(sp => sp.GetRequiredService<YahooChartProvider>());
         services.AddSingleton<IQuoteProvider>(sp => sp.GetRequiredService<TwelveDataProvider>());
         services.AddSingleton<IPriceHistoryProvider>(sp => sp.GetRequiredService<YahooChartProvider>());
         services.AddSingleton<IPriceHistoryProvider>(sp => sp.GetRequiredService<TwelveDataProvider>());
+        services.AddSingleton<IDailyQuotaSource>(sp => sp.GetRequiredService<TwelveDataProvider>());
+        services.AddSingleton<IExtendedHoursQuoteService, TradegateQuoteService>();
 
         services.AddSingleton<IQuoteService, QuoteService>();
         services.AddSingleton<IPriceHistoryService, PriceHistoryService>();

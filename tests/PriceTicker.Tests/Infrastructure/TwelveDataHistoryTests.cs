@@ -93,5 +93,6 @@ public sealed class TwelveDataHistoryTests
         new(
             new StubHttpClientFactory(handler, new Uri("https://twelvedata.test/")),
             Options.Create(new TwelveDataOptions { ApiKey = apiKey }),
+            new TwelveDataCreditMeter(TimeProvider.System),
             NullLogger<TwelveDataProvider>.Instance);
 }

@@ -4,6 +4,7 @@ using PriceTicker.App.Configuration;
 using PriceTicker.App.Platform;
 using PriceTicker.App.ViewModels;
 using PriceTicker.Core.History;
+using PriceTicker.Core.Quotas;
 using PriceTicker.Core.Quotes;
 
 namespace PriceTicker.Tests.TestDoubles;
@@ -23,6 +24,8 @@ internal static class TestViewModels
         IPriceHistoryService? history = null,
         GoldBarViewModel? goldBar = null,
         IList<GroupOptions>? groups = null,
+        IExtendedHoursQuoteService? extendedHours = null,
+        IDailyQuotaSource? quota = null,
         params string[] ids)
     {
         var options = new TickerOptions
@@ -41,6 +44,8 @@ internal static class TestViewModels
         return new TickerViewModel(
             quotes,
             history ?? FakeHistoryService.Returning(5m, 6m),
+            extendedHours ?? FakeExtendedHoursService.TradingNothing(),
+            quota ?? FakeQuotaSource.None(),
             goldBar ?? NoGoldBar(),
             Options.Create(options),
             clock,

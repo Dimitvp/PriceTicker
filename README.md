@@ -10,6 +10,14 @@ gold and Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs o
 - Green / red by direction; hover a name or price to see when the price is from, or a chart to see
   why it is missing.
 - If a refresh fails, the last price stays on screen, dimmed, with the reason in the tooltip.
+- Before the open, at weekends and after the close, the 1D change is that of the **last session**
+  and says so: `Wed -2.15 %`. Underneath, `TG +9.31 %` is where the ETF trades **now on Tradegate**
+  (08:00–22:00 CET) against that last price — roughly where it will open. The line disappears while
+  the home exchange trades.
+- **⟳** in the top-left corner refreshes at once. Showing the widget again (tray click, or launching
+  the exe while it runs) also refreshes, when the prices are more than a minute old.
+- The footer shows when prices were last checked and the time of the **oldest** price on screen
+  (`Checked 09:48 · oldest price Wed 17:35`), and how many **Twelve Data credits** are left today.
 - Optional **holdings**: under each name, the purchase price and the gain since; the row turns
   **yellow** once the review alert (e.g. −20%) is reached and **red** at a sell alert (exit at −40%
   or take-profit at +50%). Hover the name to see the alert levels.
@@ -28,7 +36,8 @@ gold and Bitcoin. Built with **.NET 10 (LTS)** and **Avalonia 11**, so it runs o
 | Instruments | Provider | Key | Notes |
 |---|---|---|---|
 | European ETFs (Xetra `.DE`, Milan `.MI`, Paris `.PA`) and gold via Xetra-Gold `4GLD.DE` (≈ 1 g of gold in EUR) | Yahoo Finance chart endpoint | none | Unofficial and undocumented; personal use only; quotes are typically delayed. |
-| Bitcoin `BTC/EUR` | [Twelve Data](https://twelvedata.com) `/quote` and `/time_series` | free | Free plan: 8 credits/minute, 800/day. Each refresh costs one credit for the quote and one for the chart (≈ 576/day at 5 minutes), plus one per range change. Commodities such as `XAU/EUR` need a paid plan. |
+| Bitcoin `BTC/EUR` | [Twelve Data](https://twelvedata.com) `/quote` and `/time_series` | free | Free plan: 8 credits/minute, 800/day (reset at 00:00 UTC). Each refresh costs one credit for the quote and one for the chart (≈ 576/day at 5 minutes), plus one per range change and one an hour to read the server's own count (`/api_usage`) for the footer. The app counts credits itself and holds back a request that would exceed either limit instead of getting HTTP 429. Commodities such as `XAU/EUR` need a paid plan. |
+| Extended-hours price of each ETF (by ISIN) | Tradegate `refresh.php` | none | Unofficial endpoint behind the exchange's own quote pages; real time, 08:00–22:00 CET. Only asked while the home exchange is shut. Turn off with `Providers:Tradegate:Enabled = false`. |
 
 Every provider sits behind `IQuoteProvider`, so a source can be replaced without touching the UI.
 
