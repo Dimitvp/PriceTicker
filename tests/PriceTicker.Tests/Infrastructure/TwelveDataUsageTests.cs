@@ -46,7 +46,7 @@ public sealed class TwelveDataUsageTests
     {
         var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 26, 8, 0, 0, TimeSpan.Zero));
         var meter = new TwelveDataCreditMeter(clock);
-        meter.TryReserve(TwelveDataCreditMeter.CreditsPerMinute);
+        Assert.Equal(CreditCheck.Reserved, meter.TryReserve(TwelveDataCreditMeter.CreditsPerMinute));
         var handler = StubHttpMessageHandler.Json("{}");
         var provider = CreateProvider(handler, meter);
 

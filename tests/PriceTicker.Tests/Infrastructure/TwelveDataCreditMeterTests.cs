@@ -35,7 +35,7 @@ public sealed class TwelveDataCreditMeterTests
         var clock = new FakeTimeProvider(Morning);
         var meter = new TwelveDataCreditMeter(clock);
         meter.Synchronise(usedToday: 100, dailyLimit: 800);
-        meter.TryReserve(2);
+        Assert.Equal(CreditCheck.Reserved, meter.TryReserve(2));
 
         var today = meter.Snapshot();
         Assert.Equal(102, today.Used);
